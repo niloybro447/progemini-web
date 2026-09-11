@@ -1,0 +1,10 @@
+{
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "react/no-unknown-property": "off",
+    "@next/next/no-html-link-for-pages": "off",
+    "react/no-inline-styles": "off",
+    "@next/next/no-inline-styles": "off",
+    "no-inline-styles": "off"
+  }
+}

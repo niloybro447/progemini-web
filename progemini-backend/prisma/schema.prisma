@@ -1,0 +1,675 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STUDENT
+}
+
+enum CourseStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum LessonType {
+  VIDEO
+  DOCUMENT
+  QUIZ
+}
+
+enum ApplicationStatus {
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum SessionVisibility {
+  ALL
+  STUDENTS_ONLY
+  INSTRUCTORS_ONLY
+  ADMINS_ONLY
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(STUDENT)
+  avatar        String?
+  bio           String?
+  isActive      Boolean   @default(true)
+  emailVerified            Boolean   @default(false)
+  verificationToken        String?
+  verificationTokenExpires DateTime?
+  resetToken               String?
+  resetTokenExpires        DateTime?
+  phone         String?
+  address       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  enrollments   Enrollment[]
+  orders        Order[]
+  reviews       Review[]
+  announcements Announcement[]
+  discussions   Discussion[]
+  reports       Report[]
+  applications  Application[]
+  attendances   Attendance[]
+  markedAttendances Attendance[] @relation("MarkedAttendance")
+  filesUploaded File[] @relation("FileUploader")
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relationships
+  courses Course[]
+
+  @@map("categories")
+}
+
+model Course {
+  id               String       @id @default(uuid())
+  title            String
+  slug             String       @unique
+  shortDescription String?
+  description      String?
+  thumbnail        String?
+  featureImage     String?
+  previewVideo     String?
+  price            Float        @default(0)
+  discountPrice    Float?
+  level            String       @default("Beginner")
+  duration         String?
+  language         String       @default("English")
+  totalLearningHour String?
+  award            String?
+  awardedBy        String?
+  credits          Int          @default(0)
+  deliveryMode     String?      @map("delivery_mode")  // e.g., Online, In-person, Blended, Self-paced
+  status           CourseStatus @default(DRAFT)
+  isPublished      Boolean      @default(false)
+  isFeatured       Boolean      @default(false)
+  featuredOrder    Int?         // 1-8 position on homepage
+  totalLectures    Int          @default(0)
+  totalDuration    Int          @default(0)
+  requirements     String?
+  whatYouLearn     String?
+  introduction     String?
+  assessmentsVerification String?
+  academicAchievement     String?
+  careerOpportunities     String?
+  customSections          String?  @map("custom_sections")  // JSON array of { id, label, content } objects
+  tags             String[]
+  metaTitle        String?
+  metaDescription  String?
+  metaKeywords     String[]
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Foreign Keys
+  categoryId   String
+
+  // Relationships
+  category    Category         @relation(fields: [categoryId], references: [id])
+  sections    CourseSection[]
+  studySections StudySection[]
+  enrollments Enrollment[]
+  orders      Order[]
+  reviews     Review[]
+  reports     Report[]
+  applications Application[]
+  attendances Attendance[]
+
+  @@index([categoryId])
+  @@index([slug])
+  @@map("courses")
+}
+
+model CourseSection {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign Keys
+  courseId String
+
+  // Relationships
+  course  Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId])
+  @@map("course_sections")
+}
+
+model StudySection {
+  id          String   @id @default(uuid())
+  name        String   // e.g., "Section A", "Section B"
+  description String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign Keys
+  courseId String
+
+  // Relationships
+  course       Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  attendances  Attendance[]
+  enrollments  Enrollment[]
+
+  @@index([courseId])
+  @@map("study_sections")
+}
+
+model Lesson {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  type        LessonType @default(VIDEO)
+  content     String? // Video URL, Document URL, or Quiz JSON
+  duration    Int        @default(0) // in seconds
+  order       Int        @default(0)
+  isFree      Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Foreign Keys
+  sectionId String
+
+  // Relationships
+  section          CourseSection      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  lessonProgresses LessonProgress[]
+  discussions      Discussion[]
+
+  @@index([sectionId])
+  @@map("lessons")
+}
+
+model Enrollment {
+  id              String   @id @default(uuid())
+  progress        Float    @default(0) // 0-100
+  completedLessons Int     @default(0)
+  totalLessons    Int      @default(0)
+  isCompleted     Boolean  @default(false)
+  completedAt     DateTime?
+  enrolledAt      DateTime @default(now())
+  lastAccessedAt  DateTime @default(now())
+
+  // Foreign Keys
+  studentId      String
+  courseId        String
+  studySectionId String?
+
+  // Relationships
+  student          User             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course           Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  studySection     StudySection?    @relation(fields: [studySectionId], references: [id], onDelete: SetNull)
+  lessonProgresses LessonProgress[]
+
+  @@unique([studentId, courseId, studySectionId])
+  @@index([studentId])
+  @@index([courseId])
+  @@index([studySectionId])
+  @@map("enrollments")
+}
+
+
+
+model LessonProgress {
+  id          String    @id @default(uuid())
+  isCompleted Boolean   @default(false)
+  watchTime   Int       @default(0) // in seconds
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Foreign Keys
+  enrollmentId String
+  lessonId     String
+
+  // Relationships
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+  @@index([enrollmentId])
+  @@index([lessonId])
+  @@map("lesson_progresses")
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  amount          Float
+  discount        Float       @default(0)
+  tax             Float       @default(0)
+  total           Float
+  status          OrderStatus @default(PENDING)
+  paymentMethod   String? // stripe, sslcommerz
+  paymentId       String?
+  transactionId   String?
+  paymentDetails  Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Foreign Keys
+  studentId String
+  courseId  String
+
+  // Relationships
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([courseId])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+
+
+model Review {
+  id        String   @id @default(uuid())
+  rating    Int // 1-5
+  comment   String?
+  isApproved Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  studentId String
+  courseId  String
+
+  // Relationships
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course  Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, courseId])
+  @@index([courseId])
+  @@index([studentId])
+  @@map("reviews")
+}
+
+model Blog {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String   @unique
+  excerpt     String?
+  content     String
+  thumbnail   String?
+  isPublished Boolean  @default(false)
+  views       Int      @default(0)
+  metaTitle   String?
+  metaDescription String?
+  metaKeywords String[]
+  tags        String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@map("blogs")
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  type      String   @default("info") // info, warning, success
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  createdById String
+
+  // Relationships
+  createdBy User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@map("announcements")
+}
+
+model Discussion {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String?
+  isAnswered Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  studentId String
+  lessonId  String
+
+  // Relationships
+  student User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lesson  Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([lessonId])
+  @@map("discussions")
+}
+
+model Report {
+  id          String   @id @default(uuid())
+  reason      String
+  description String
+  status      String   @default("pending") // pending, resolved, rejected
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign Keys
+  reportedById String
+  courseId     String
+
+  // Relationships
+  reportedBy User   @relation(fields: [reportedById], references: [id], onDelete: Cascade)
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([reportedById])
+  @@index([courseId])
+  @@map("reports")
+}
+
+model SiteSettings {
+  id                String   @id @default(uuid())
+  key               String   @unique
+  value             String
+  type              String   @default("text") // text, number, boolean, json
+  category          String   @default("general")
+  description       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([key])
+  @@map("site_settings")
+}
+
+model Application {
+  id        String            @id @default(uuid())
+  status    ApplicationStatus @default(IN_REVIEW)
+  
+  // Personal Information
+  firstName       String
+  lastName        String
+  email           String
+  phone           String
+  dateOfBirth     String
+  gender          String
+  nationality     String
+  address         String
+  city            String
+  state           String
+  zipCode         String
+  country         String
+  
+  // Academic Information
+  highestEducation     String
+  institutionName      String
+  fieldOfStudy         String
+  graduationYear       String
+  gpa                  String?
+  englishProficiency   String
+  previousCourses      String?
+  workExperience       String?
+  
+  // Documents - handled through File model
+  // (passportCopy, academicTranscripts, resume, etc. are now in files relationship)
+  
+  // Admin Feedback
+  adminFeedback String?
+  reviewedAt    DateTime?
+  reviewedBy    String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Foreign Keys
+  userId   String
+  courseId String
+
+  // Relationships
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  files  File[]
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@map("applications")
+}
+
+model Attendance {
+  id        String           @id @default(uuid())
+  date      DateTime         @db.Date // Date of the class
+  status    AttendanceStatus @default(ABSENT)
+  notes     String?          // Optional notes from admin
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  // Foreign Keys
+  studentId    String
+  courseId     String
+  markedById   String
+  studySectionId String?
+
+  // Relationships
+  student    User   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  markedBy   User   @relation("MarkedAttendance", fields: [markedById], references: [id], onDelete: Cascade)
+  studySection StudySection? @relation(fields: [studySectionId], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, courseId, date]) // Prevent duplicate attendance for same student, course, and date
+  @@index([studentId])
+  @@index([courseId])
+  @@index([markedById])
+  @@index([studySectionId])
+  @@index([date])
+  @@map("attendances")
+}
+
+enum FileType {
+  ADMISSION_DOCUMENT
+  PROFILE_PICTURE
+  CERTIFICATE
+  OTHER
+}
+
+model File {
+  id              String     @id @default(uuid())
+  fileName        String
+  originalName    String
+  slug            String     @unique // MINIO object name
+  fullUrl         String
+  fileType        FileType   @default(OTHER)
+  mimeType        String
+  fileSize        Int        // in bytes
+  bucketName      String     @default("progemini-files")
+  isTemporary     Boolean    @default(false) // for cleanup
+  uploadedAt      DateTime   @default(now())
+  lastAccessedAt  DateTime   @default(now())
+  
+  // Foreign Keys
+  uploadedById    String
+  applicationId   String?
+
+  // Relationships
+  uploadedBy      User         @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  application     Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([uploadedById])
+  @@index([applicationId])
+  @@index([fileType])
+  @@index([isTemporary])
+  @@map("files")
+}
+
+model HeroSlide {
+  id          String   @id @default(uuid())
+  title       String
+  eyebrow     String?
+  description String?  @db.Text
+  imageUrl    String
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("hero_slides")
+}
+
+model Enquiry {
+  id            BigInt    @id @default(autoincrement())
+  fullName      String    @map("full_name")
+  email         String
+  phone         String?
+  country       String?   @default("Not Specified")  // Country name
+  submitterType String?   @default("Other") @map("submitter_type")  // Institution, Student, Teacher, Affiliate Marketer, Other
+  enquiryType   String    @map("enquiry_type") // About a Course, Admission Process, Fees & Payment, etc.
+  courseName    String?   @map("course_name") // Conditional field
+  message       String    @db.Text
+  status        String    @default("Pending") // Pending, In progress, Done, Need Sales to talk, Need admission officer to talk
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  @@index([status])
+  @@index([createdAt])
+  @@map("enquiries")
+}
+
+model AcademicMember {
+  id          String   @id @default(uuid())
+  name        String
+  designation String
+  extensions  String?
+  email       String?
+  linkedIn    String?
+  imageUrl    String?
+  profile     String?  @db.Text  // TipTap JSON+HTML encoded as JSON string
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+  @@map("academic_team")
+}
+
+model PartnerUniversity {
+  id          String   @id @default(uuid())
+  name        String
+  logoUrl     String?
+  websiteUrl  String?
+  description String?  @db.Text  // TipTap encoded content
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+  @@map("partner_universities")
+}
+
+model Consultant {
+  id          String   @id @default(uuid())
+  name        String
+  designation String
+  extensions  String?
+  email       String?
+  linkedIn    String?
+  imageUrl    String?
+  profile     String?  @db.Text  // TipTap JSON+HTML encoded as JSON string
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+  @@map("consultants")
+}
+
+model SeniorProfile {
+  id                   String   @id @default(uuid())
+  slug                 String   @unique
+  name                 String
+  position             String   // e.g. "PRINCIPAL & FOUNDING CEO"
+  quality              String   // Comma-separated qualities e.g. "Higher Education Leader,Transnational Education Pioneer"
+  description          String   @db.Text // Hero section description paragraph
+  imageUrlDesktop      String   // Cloudinary or MinIO image URL for desktop
+  imageUrlMobile       String   // Cloudinary or MinIO image URL for mobile
+  objectPos            String   @default("object-center") // Image crop alignment (object-top, object-center, etc.)
+  linkedin             String   @default("#")
+  
+  // Hero section key-value items (JSON structure supporting 7 candidates, exactly 3 selected)
+  heroItems            Json     // { label: string, value: string, selected: boolean }[]
+
+  // Main body descriptions (edited via existing Tiptap editor)
+  fullDescriptionHTML  String   @db.Text // Left narrative column
+  sideDescription1HTML String   @db.Text // Right sidebar - Card 1 (Expertise)
+  sideDescription2HTML String   @db.Text // Right sidebar - Card 2 (Perspective/Quote)
+
+  order                Int      @default(0)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+  @@map("senior_profiles")
+}
+
+
+
