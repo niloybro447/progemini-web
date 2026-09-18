@@ -12,22 +12,34 @@ export function createApp(): express.Express {
   const app = express();
 
   // Security headers
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
-  // CORS
+  // Dynamic CORS handling for multiple origins & credentials
+  const allowedOrigins = typeof config.corsOrigin === "string"
+    ? config.corsOrigin.split(",").map((o) => o.trim())
+    : [config.corsOrigin];
+
   app.use(
     cors({
-      origin: config.corsOrigin,
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes("*") || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
       credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "Cookie", "X-Requested-With"],
     }),
   );
 
   // Raw body for Stripe webhook (must be before express.json)
   app.use("/api/v1/webhooks/stripe", express.raw({ type: "application/json" }));
+  app.use("/api/webhooks/stripe", express.raw({ type: "application/json" }));
 
   // Body parsing
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(express.json({ limit: "25mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "25mb" }));
 
   // Cookie parsing
   app.use(cookieParser());
@@ -38,7 +50,7 @@ export function createApp(): express.Express {
     next();
   });
 
-  // API routes
+  // Mount API routes
   app.use("/api", routes);
 
   // 404 handler

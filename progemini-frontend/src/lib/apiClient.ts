@@ -1,3 +1,5 @@
+import { getSession } from "next-auth/react";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
 
 interface RequestOptions extends RequestInit {
@@ -10,6 +12,17 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
     ...(fetchOptions.headers as Record<string, string>),
   };
 
+  // Automatically attach Bearer token from NextAuth session
+  try {
+    const session = await getSession();
+    const token = (session as any)?.accessToken;
+    if (token && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  } catch {
+    // Session retrieval skipped in non-client context
+  }
+
   if (json !== undefined) {
     headers["Content-Type"] = "application/json";
     fetchOptions.body = JSON.stringify(json);
@@ -18,11 +31,17 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   fetchOptions.credentials = "include";
   fetchOptions.headers = headers;
 
-  const res = await fetch(`${API_BASE}${endpoint}`, fetchOptions);
+  // Normalize endpoint to prevent double /api
+  let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith("/api/")) {
+    cleanEndpoint = cleanEndpoint.replace(/^\/api/, "");
+  }
+
+  const res = await fetch(`${API_BASE}${cleanEndpoint}`, fetchOptions);
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: res.statusText }));
-    const message = error.error?.message || error.message || `API Error ${res.status}`;
+    const message = error.error?.message || error.message || error.error || `API Error ${res.status}`;
     throw new Error(message);
   }
 

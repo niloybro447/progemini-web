@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import { FaArrowLeft, FaArrowRight, FaCheck } from "react-icons/fa";
+import { FaArrowLeft, FaArrowRight, FaCheck, FaCheckCircle, FaSyncAlt } from "react-icons/fa";
 import FileUpload, { type FileType } from "./FileUpload";
 import { apiClient } from '@/lib/apiClient';
 
@@ -28,6 +28,7 @@ interface Category {
 interface ApplicationFormProps {
   courses: Course[];
   categories: Category[];
+  initialProfile?: any;
 }
 
 interface FormData {
@@ -58,9 +59,10 @@ interface FormData {
   documentFiles: string[];
 }
 
-export default function ApplicationForm({ courses, categories }: ApplicationFormProps) {
+export default function ApplicationForm({ courses, categories, initialProfile }: ApplicationFormProps) {
   const router = useRouter();
   const isSubmittedRef = useRef(false);
+  const [profileSynced, setProfileSynced] = useState(false);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [applicationId, setApplicationId] = useState<string | null>(null);
@@ -106,6 +108,72 @@ export default function ApplicationForm({ courses, categories }: ApplicationForm
   });
 
   const uploadedFilesRef = useRef<string[]>([]);
+
+  // Auto-sync data from Student Profile if available
+  useEffect(() => {
+    const syncProfileData = (p: any) => {
+      if (!p) return;
+      const sp = p.studentProfile || {};
+
+      // Split full name into first and last name
+      const nameParts = (p.name || "").trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
+
+      // Parse date of birth to YYYY-MM-DD
+      let dob = "";
+      if (sp.dateOfBirth) {
+        try {
+          dob = new Date(sp.dateOfBirth).toISOString().split("T")[0];
+        } catch {}
+      }
+
+      // Address & location parsing
+      const fullAddress = sp.address || sp.presentAddress || p.address || "";
+      let zipCode = "";
+      const zipMatch = fullAddress.match(/\b\d{4,6}\b/);
+      if (zipMatch) zipCode = zipMatch[0];
+
+      let city = "";
+      if (/dhaka/i.test(fullAddress) || /mirpur/i.test(fullAddress)) city = "Dhaka";
+      else if (/chittagong|chattogram/i.test(fullAddress)) city = "Chittagong";
+      else if (/sylhet/i.test(fullAddress)) city = "Sylhet";
+
+      const nationality = sp.nationality || "Bangladesh";
+      const country = nationality || "Bangladesh";
+      const gender = sp.gender || "Male";
+
+      setFormData((prev) => ({
+        ...prev,
+        firstName: prev.firstName || firstName,
+        lastName: prev.lastName || lastName,
+        email: prev.email || p.email || "",
+        phone: prev.phone || p.phone || "",
+        dateOfBirth: prev.dateOfBirth || dob,
+        gender: prev.gender || gender,
+        nationality: prev.nationality || nationality,
+        country: prev.country || country,
+        address: prev.address || fullAddress,
+        city: prev.city || city || "Dhaka",
+        state: prev.state || city || "Dhaka",
+        zipCode: prev.zipCode || zipCode || "1216",
+      }));
+
+      setProfileSynced(true);
+    };
+
+    if (initialProfile) {
+      syncProfileData(initialProfile);
+    } else {
+      apiClient
+        .get<any>("/v1/student/profile")
+        .then((res) => {
+          const p = res?.profile || res;
+          if (p) syncProfileData(p);
+        })
+        .catch(() => {});
+    }
+  }, [initialProfile]);
 
   // Keep the uploaded files ref in sync with state
   useEffect(() => {
@@ -427,7 +495,27 @@ export default function ApplicationForm({ courses, categories }: ApplicationForm
         {/* Step 1: Personal Information */}
         {step === 1 && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold mb-6">Personal Information</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <h2 className="text-2xl font-bold">Personal Information</h2>
+              {profileSynced && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200 w-fit">
+                  <FaCheckCircle className="text-green-600" />
+                  Auto-Synced from Student Profile
+                </span>
+              )}
+            </div>
+
+            {profileSynced && (
+              <div className="p-3.5 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl text-green-900 text-xs sm:text-sm flex items-start gap-2.5 shadow-sm mb-4">
+                <FaSyncAlt className="text-green-600 mt-0.5 text-sm flex-shrink-0" />
+                <div>
+                  <span className="font-semibold">Profile Data Synchronized:</span>
+                  <p className="text-green-800 mt-0.5 text-xs">
+                    Your personal details (Name, Contact, Address, Nationality, and Demographics) have been automatically populated from your verified student profile. You can review and adjust any field below before submitting.
+                  </p>
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>

@@ -92,6 +92,7 @@ model User {
   attendances   Attendance[]
   markedAttendances Attendance[] @relation("MarkedAttendance")
   filesUploaded File[] @relation("FileUploader")
+  studentProfile StudentProfile?
 
   @@map("users")
 }
@@ -263,8 +264,6 @@ model Enrollment {
   @@map("enrollments")
 }
 
-
-
 model LessonProgress {
   id          String    @id @default(uuid())
   isCompleted Boolean   @default(false)
@@ -315,8 +314,6 @@ model Order {
   @@index([orderNumber])
   @@map("orders")
 }
-
-
 
 model Review {
   id        String   @id @default(uuid())
@@ -671,5 +668,115 @@ model SeniorProfile {
   @@map("senior_profiles")
 }
 
+// ─── Email Marketing ────────────────────────────────────────────────
 
+enum EmailCampaignStatus {
+  DRAFT
+  SENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  PAUSED
+}
+
+enum EmailCampaignType {
+  NEWSLETTER
+  COURSE_ANNOUNCEMENT
+  STUDENT_UPDATE
+  PROMOTIONAL
+  SYSTEM_NOTIFICATION
+  OUTREACH
+}
+
+model EmailCampaign {
+  id               String              @id @default(uuid())
+  name             String
+  type             EmailCampaignType   @default(NEWSLETTER)
+  fromEmail        String              // Selected sender address (e.g. info@progemini.academy)
+  fromName         String?             // e.g. "Progemini Academy" or "Evlyn Chahine"
+  subject          String
+  htmlBody         String              @db.Text
+  plainText        String?             @db.Text
+  delaySeconds     Int                 @default(3)
+  batchSize        Int                 @default(10)
+  totalRecipients  Int                 @default(0)
+  sentCount        Int                 @default(0)
+  failedCount      Int                 @default(0)
+  openCount        Int                 @default(0)
+  clickCount       Int                 @default(0)
+  bounceCount      Int                 @default(0)
+  spamCount        Int                 @default(0)
+  status           EmailCampaignStatus @default(DRAFT)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  logs             EmailLog[]
+
+  @@map("email_campaigns")
+}
+
+model EmailLog {
+  id           String   @id @default(uuid())
+  campaignId   String
+  recipient    String
+  customData   Json?
+  status       String   @default("sent") // sent | delivered | failed | bounced | complained
+  error        String?
+  openCount    Int      @default(0)
+  clickedUrls  String[]
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  sentAt       DateTime @default(now())
+
+  campaign     EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@map("email_logs")
+}
+
+model EmailContactList {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  tags          String[]
+  customColumns String[]
+  contacts      Json     // Array of ContactItem objects
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("email_contact_lists")
+}
+
+model StudentProfile {
+  id               String    @id @default(uuid())
+  userId           String    @unique @map("user_id")
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Institutional & Academic Records
+  studentId        String?   @unique @map("student_id")
+  program          String?
+  startedSemester  String?   @map("started_semester")
+  startedYear      String?   @map("started_year")
+
+  // Next of Kin & Contact Details
+  nextOfKinName         String?   @map("next_of_kin_name")
+  nextOfKinRelationship String?   @map("next_of_kin_relationship")
+  nextOfKinPhone        String?   @map("next_of_kin_phone")
+  nextOfKinEmail        String?   @map("next_of_kin_email")
+  address               String?   @map("address") @db.Text
+
+  // Identity & Demographics
+  dateOfBirth      DateTime? @map("date_of_birth")
+  gender           String?
+  nationality      String?
+  passport         String?
+
+  // Profile Completion Status
+  isCompleted      Boolean   @default(false) @map("is_completed")
+
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@map("student_profiles")
+}
 

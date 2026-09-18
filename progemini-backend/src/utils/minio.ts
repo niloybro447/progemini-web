@@ -1,5 +1,5 @@
 import * as Minio from "minio";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 import { config } from "@/config";
 import { logger } from "@/utils/logger";
 import path from "path";
@@ -39,7 +39,7 @@ class MinioService {
     await this.ensureBucketExists(bucket);
 
     const ext = path.extname(originalName);
-    const slug = folder ? `${folder}/${uuidv4()}${ext}` : `${uuidv4()}${ext}`;
+    const slug = folder ? `${folder}/${randomUUID()}${ext}` : `${randomUUID()}${ext}`;
     const fileSize = fileBuffer.length;
 
     await this.client.putObject(bucket, slug, fileBuffer, fileSize, {

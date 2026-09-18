@@ -10,6 +10,13 @@ export const metadata: Metadata = {
 };
 
 async function getUserProfile(userId: string) {
+  try {
+    const res = await serverFetch<any>('/v1/student/profile');
+    if (res?.profile) return res.profile;
+    if (res?.id) return res;
+  } catch {
+    // fallback to direct user fetch
+  }
   return serverFetch<any>(`/v1/users/${userId}`);
 }
 

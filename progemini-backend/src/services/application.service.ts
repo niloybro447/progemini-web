@@ -78,6 +78,38 @@ export async function createApplication(userId: string, data: Record<string, unk
     logger.error({ err }, "Failed to send application submission email"),
   );
 
+  // Synchronize application demographics into student profile if not already set
+  try {
+    const existingProfile = await prisma.studentProfile.findUnique({ where: { userId } });
+    const fullAddress = `${data.address || ""}, ${data.city || ""}, ${data.country || ""}`.replace(/^,\s*|,\s*$/g, "").trim();
+    const dob = data.dateOfBirth ? new Date(data.dateOfBirth as string) : null;
+
+    if (!existingProfile) {
+      await prisma.studentProfile.create({
+        data: {
+          userId,
+          address: fullAddress || null,
+          gender: (data.gender as string) || null,
+          nationality: (data.nationality as string) || null,
+          dateOfBirth: dob,
+          isCompleted: false,
+        },
+      });
+    } else if (!existingProfile.isCompleted) {
+      await prisma.studentProfile.update({
+        where: { userId },
+        data: {
+          address: existingProfile.address || fullAddress || null,
+          gender: existingProfile.gender || (data.gender as string) || null,
+          nationality: existingProfile.nationality || (data.nationality as string) || null,
+          dateOfBirth: existingProfile.dateOfBirth || dob,
+        },
+      });
+    }
+  } catch (syncErr) {
+    logger.warn({ err: syncErr }, "Could not sync application data into studentProfile");
+  }
+
   return application;
 }
 

@@ -11,10 +11,13 @@ export default async function ApplyPage() {
     redirect("/login");
   }
 
-  const [courses, categories] = await Promise.all([
+  const [courses, categories, profileRes] = await Promise.all([
     serverFetch<any[]>('/v1/courses'),
     serverFetch<any[]>('/v1/categories'),
+    serverFetch<any>('/v1/student/profile').catch(() => null),
   ]);
+
+  const profile = profileRes?.profile || profileRes || null;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -26,7 +29,7 @@ export default async function ApplyPage() {
           </p>
         </div>
 
-        <ApplicationForm courses={courses} categories={categories} />
+        <ApplicationForm courses={courses} categories={categories} initialProfile={profile} />
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FaTachometerAlt, FaUsers, FaBook, FaCog, FaSignOutAlt, FaFileAlt, FaCalendarCheck, FaTimes, FaChevronDown, FaGlobe, FaImage, FaEnvelope, FaChalkboardTeacher, FaUniversity } from 'react-icons/fa';
+import { FaTachometerAlt, FaUsers, FaBook, FaCog, FaSignOutAlt, FaFileAlt, FaCalendarCheck, FaTimes, FaChevronDown, FaGlobe, FaImage, FaEnvelope, FaChalkboardTeacher, FaUniversity, FaPaperPlane, FaAddressBook, FaPlusCircle } from 'react-icons/fa';
 import { signOut } from 'next-auth/react';
 import { useState } from 'react';
 
@@ -13,6 +13,13 @@ const menuItems = [
   { icon: FaFileAlt, label: 'Applications', href: '/admin/applications' },
   { icon: FaEnvelope, label: 'Enquiries', href: '/admin/enquiries' },
   { icon: FaBook, label: 'All Courses', href: '/admin/courses' },
+];
+
+const emailMarketingItems = [
+  { icon: FaPaperPlane, label: 'Dashboard', href: '/admin/email-marketing' },
+  { icon: FaEnvelope, label: 'All Campaigns', href: '/admin/email-marketing/campaigns' },
+  { icon: FaPlusCircle, label: 'Create Campaign', href: '/admin/email-marketing/campaigns/new' },
+  { icon: FaAddressBook, label: 'Contact Lists', href: '/admin/email-marketing/contacts' },
 ];
 
 const webPagesItems = [
@@ -25,6 +32,9 @@ const webPagesItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const [emailMarketingOpen, setEmailMarketingOpen] = useState(
+    pathname.startsWith('/admin/email-marketing')
+  );
   const [webPagesOpen, setWebPagesOpen] = useState(
     pathname.startsWith('/admin/web-pages')
   );
@@ -79,6 +89,45 @@ export default function AdminSidebar() {
             </Link>
           );
         })}
+
+        {/* Email Marketing accordion */}
+        <div>
+          <button
+            onClick={() => setEmailMarketingOpen((o) => !o)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${pathname.startsWith('/admin/email-marketing')
+                ? 'bg-brand-primary text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+          >
+            <span className="flex items-center gap-3">
+              <FaPaperPlane className="text-xl flex-shrink-0" />
+              <span>Email Marketing</span>
+            </span>
+            <FaChevronDown className={`text-xs transition-transform ${emailMarketingOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {emailMarketingOpen && (
+            <div className="mt-1 ml-4 space-y-1 border-l border-gray-600 pl-3">
+              {emailMarketingItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={handleNavClick}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive
+                        ? 'bg-brand-primary text-white font-semibold'
+                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                      }`}
+                  >
+                    <item.icon className="flex-shrink-0 text-sm" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Web Pages accordion */}
         <div>

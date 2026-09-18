@@ -1,21 +1,25 @@
 services:
-  progemini-app-test:
-    container_name: progemini_app_test
-    image: progemini:${TEST_TAG:-test-latest}
+  # ─── Express Backend API ───────────────────────────────────────
+  progemini-backend:
+    container_name: progemini_backend
+    image: progemini-backend:${BACKEND_TAG:-latest}
     build:
-      context: ./progemini-frontend
+      context: ./progemini-backend
       dockerfile: Dockerfile
-      args:
-        - BUILD_ENV=test
     ports:
-      - "30001:3000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     env_file:
-      - ./progemini-frontend/.env
+      - path: ./progemini-backend/.env
+        required: true
     environment:
       - NODE_ENV=production
-      - PORT=3000
+      - PORT=5000
     restart: unless-stopped
     networks:
       - progemini-network
@@ -28,11 +32,12 @@ services:
       resources:
         limits:
           cpus: "2"
-          memory: 2G
+          memory: 1536M
         reservations:
-          cpus: "1"
-          memory: 1G
+          cpus: "0.5"
+          memory: 512M
 
+  # ─── Next.js Frontend ──────────────────────────────────────────
   progemini-app-prod:
     container_name: progemini_app_prod
     image: progemini:${PROD_TAG:-prod-latest}
@@ -41,7 +46,9 @@ services:
       dockerfile: Dockerfile
       args:
         - BUILD_ENV=prod
-    # Host :3010 → app listens on 3000 inside the container (see Dockerfile EXPOSE)
+    depends_on:
+      progemini-backend:
+        condition: service_healthy
     ports:
       - "3010:3000"
     healthcheck:
@@ -50,14 +57,12 @@ services:
       timeout: 10s
       retries: 5
       start_period: 60s
-
     env_file:
       - path: ./progemini-frontend/.env.prod
         required: false
     environment:
       - NODE_ENV=production
       - PORT=3000
-      # Allow Node.js to use up to 1.2GB heap (leave headroom for OS + sharp)
       - NODE_OPTIONS=--max-old-space-size=1200
     restart: unless-stopped
     networks:
@@ -71,13 +76,10 @@ services:
       resources:
         limits:
           cpus: "2"
-          memory: 1536M   # Increased from 512M — Next.js needs ≥1GB; sharp OOMs at 512M
+          memory: 1536M
         reservations:
           cpus: "0.5"
           memory: 512M
-
-volumes:
-  progemini_data:
 
 networks:
   progemini-network:

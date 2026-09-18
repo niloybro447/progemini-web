@@ -15,6 +15,12 @@ router.delete("/applications/:id", authenticate, authorize("STUDENT", "ADMIN"), 
 
 // ─── Enquiries ─────────────────────────────────────────
 router.post("/enquiries", ac.createEnquiry);
+router.get("/enquiries", authenticate, authorize("ADMIN"), ac.listEnquiries);
+router.get("/enquiries/:id", authenticate, authorize("ADMIN"), ac.getEnquiryById);
+router.patch("/enquiries/:id", authenticate, authorize("ADMIN"), ac.updateEnquiryStatus);
+router.delete("/enquiries/:id", authenticate, authorize("ADMIN"), ac.deleteEnquiry);
+
+// Aliases for /admin/enquiries
 router.get("/admin/enquiries", authenticate, authorize("ADMIN"), ac.listEnquiries);
 router.get("/admin/enquiries/:id", authenticate, authorize("ADMIN"), ac.getEnquiryById);
 router.patch("/admin/enquiries/:id", authenticate, authorize("ADMIN"), ac.updateEnquiryStatus);

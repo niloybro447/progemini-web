@@ -5,20 +5,36 @@ import { authOptions } from "./auth";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
 
 export async function serverFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore
-    .getAll()
-    .map((c) => `${c.name}=${c.value}`)
-    .join("; ");
+  let cookieHeader = "";
+  try {
+    const cookieStore = cookies();
+    cookieHeader = cookieStore
+      .getAll()
+      .map((c) => `${c.name}=${c.value}`)
+      .join("; ");
+  } catch {
+    // cookies() unavailable in some static build contexts
+  }
 
-  const session = await getServerSession(authOptions);
-  const accessToken = (session as any)?.accessToken;
+  let accessToken: string | undefined;
+  try {
+    const session = await getServerSession(authOptions);
+    accessToken = (session as any)?.accessToken;
+  } catch {
+    // session unavailable
+  }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
+  // Normalize endpoint to prevent double /api
+  let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith("/api/")) {
+    cleanEndpoint = cleanEndpoint.replace(/^\/api/, "");
+  }
+
+  const res = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     headers: {
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      Cookie: cookieHeader,
+      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       ...options?.headers,
     },
     cache: "no-store",
@@ -26,7 +42,7 @@ export async function serverFetch<T>(endpoint: string, options?: RequestInit): P
 
   if (!res.ok) {
     const error = await res.json().catch(() => ({ error: res.statusText }));
-    const message = error.error?.message || error.message || `API Error ${res.status}`;
+    const message = error.error?.message || error.message || error.error || `API Error ${res.status}`;
     throw new Error(message);
   }
 

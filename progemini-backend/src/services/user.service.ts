@@ -15,6 +15,25 @@ export async function getProfile(userId: string) {
       avatar: true,
       role: true,
       createdAt: true,
+      studentProfile: true,
+      enrollments: {
+        include: {
+          course: {
+            select: {
+              id: true,
+              title: true,
+              thumbnail: true,
+            },
+          },
+        },
+        orderBy: { enrolledAt: "desc" },
+      },
+      _count: {
+        select: {
+          enrollments: true,
+          reviews: true,
+        },
+      },
     },
   });
 
@@ -89,7 +108,25 @@ export async function getUserById(id: string) {
       address: true,
       isActive: true,
       createdAt: true,
-      _count: { select: { enrollments: true } },
+      studentProfile: true,
+      enrollments: {
+        include: {
+          course: {
+            select: {
+              id: true,
+              title: true,
+              thumbnail: true,
+            },
+          },
+        },
+        orderBy: { enrolledAt: "desc" },
+      },
+      _count: {
+        select: {
+          enrollments: true,
+          reviews: true,
+        },
+      },
     },
   });
 

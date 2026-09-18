@@ -26,21 +26,20 @@ export default function StudentSidebar() {
   return (
     <div className="w-full bg-brand-secondary text-white flex flex-col h-full">
       {/* Logo - Mobile Close Button */}
-      <div className="p-6 border-b border-gray-700 flex items-center bg-brand-primary justify-between">
-        <Link href="/student/applications" className="flex items-center gap-2">
+      <div className="px-5 py-4 border-b border-gray-700 flex items-center bg-brand-secondary justify-between min-h-[76px]">
+        <Link href="/student/applications" className="flex items-center">
           <Image
-            src="/logo.png"
+            src="/progemini-logo-white-v2.png"
             alt="ProGemini Logo"
-            width={120}
-            height={40}
+            width={200}
+            height={73}
             priority
-            className="hidden lg:block object-contain"
+            className="h-12 sm:h-13 w-auto max-w-[200px] object-contain"
           />
-          <div className="lg:hidden text-sm font-bold">Menu</div>
         </Link>
         {/* Close Button - Mobile/Tablet Only */}
         <button
-          className="lg:hidden"
+          className="lg:hidden text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800"
           onClick={() => document.getElementById('mobile-sidebar')?.classList.add('hidden')}
           title="Close menu"
         >

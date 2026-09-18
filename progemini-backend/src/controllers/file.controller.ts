@@ -45,7 +45,13 @@ export const downloadFileById = asyncHandler(async (req: Request, res: Response)
 });
 
 export const downloadFileBySlug = asyncHandler(async (req: Request, res: Response) => {
-  const slug = (req.params.slug as unknown as string[]).map(encodeURIComponent).join("/");
+  const raw = req.params[0] ?? (req.params as any).slug ?? (req.params as any)["*"] ?? "";
+  let slug = Array.isArray(raw) ? raw.join("/") : String(raw);
+  if (!slug) {
+    slug = req.url.replace(/^.*\/files\/download\/?/, "").split("?")[0];
+  }
+  slug = decodeURIComponent(slug).replace(/^\/+/, "");
+
   const result = await fileService.downloadFileBySlug(slug);
   if (!result) {
     res.status(StatusCodes.NOT_FOUND).json({ error: "File not found" });

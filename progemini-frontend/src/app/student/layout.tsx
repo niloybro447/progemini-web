@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/session';
 import StudentSidebar from '@/components/student/StudentSidebar';
 import StudentHeader from '@/components/student/StudentHeader';
+import StudentWelcomeBanner from '@/components/student/StudentWelcomeBanner';
 import { getDashboardPath } from '@/lib/authNavigation';
 
 export default async function StudentLayout({
@@ -41,9 +42,12 @@ export default async function StudentLayout({
           </div>
         </div>
         
-        {/* Main Content */}
-        <div className="flex-1 overflow-auto">
-          {children}
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-auto">
+          <StudentWelcomeBanner />
+          <div className="flex-1">
+            {children}
+          </div>
         </div>
       </div>
     </div>
