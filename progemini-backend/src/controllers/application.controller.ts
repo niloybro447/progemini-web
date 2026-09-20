@@ -11,7 +11,12 @@ export const createApplication = asyncHandler(async (req: Request, res: Response
 });
 
 export const listApplications = asyncHandler(async (req: Request, res: Response) => {
-  const result = await appService.listApplications(req.user!.id, req.user!.role, req.query.status as string | undefined);
+  const result = await appService.listApplications(
+    req.user!.id,
+    req.user!.role,
+    req.query.status as string | undefined,
+    req.query.userId as string | undefined,
+  );
   res.status(StatusCodes.OK).json(result);
 });
 

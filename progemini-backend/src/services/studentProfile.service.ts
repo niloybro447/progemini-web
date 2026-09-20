@@ -8,6 +8,22 @@ export async function getStudentProfile(userId: string) {
     where: { id: userId },
     include: {
       studentProfile: true,
+      applications: {
+        select: {
+          id: true,
+          status: true,
+          courseId: true,
+          createdAt: true,
+          course: {
+            select: {
+              id: true,
+              title: true,
+              thumbnail: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
       enrollments: {
         include: {
           course: {
@@ -71,6 +87,34 @@ export async function getStudentProfile(userId: string) {
     }
   }
 
+  // Ensure isCompleted status strictly matches completeness of all student-provided fields
+  if (user.studentProfile && user.role === "STUDENT") {
+    const sp = user.studentProfile;
+    const computedComplete = Boolean(
+      user.name?.trim() &&
+      user.phone?.trim() &&
+      user.email?.trim() &&
+      user.avatar?.trim() &&
+      sp.passport?.trim() &&
+      sp.nationality?.trim() &&
+      (sp.address?.trim() || user.address?.trim()) &&
+      sp.dateOfBirth &&
+      sp.gender?.trim() &&
+      sp.nextOfKinRelationship?.trim() &&
+      sp.nextOfKinName?.trim() &&
+      sp.nextOfKinPhone?.trim() &&
+      sp.nextOfKinEmail?.trim()
+    );
+
+    if (sp.isCompleted !== computedComplete) {
+      await prisma.studentProfile.update({
+        where: { userId },
+        data: { isCompleted: computedComplete },
+      });
+      user.studentProfile.isCompleted = computedComplete;
+    }
+  }
+
   return user;
 }
 
@@ -103,8 +147,28 @@ export async function updateStudentProfile(userId: string, data: Record<string, 
     );
   }
 
+  const dateOfBirth = parseSafeDate(data.dateOfBirth) || user.studentProfile?.dateOfBirth;
+  const gender = (data.gender !== undefined ? data.gender : user.studentProfile?.gender)?.trim() || null;
+  const nextOfKinName = (data.nextOfKinName !== undefined ? data.nextOfKinName : user.studentProfile?.nextOfKinName)?.trim() || null;
+  const nextOfKinRelationship = (data.nextOfKinRelationship !== undefined ? data.nextOfKinRelationship : user.studentProfile?.nextOfKinRelationship)?.trim() || null;
+  const nextOfKinPhone = (data.nextOfKinPhone !== undefined ? data.nextOfKinPhone : user.studentProfile?.nextOfKinPhone)?.trim() || null;
+  const nextOfKinEmail = (data.nextOfKinEmail !== undefined ? data.nextOfKinEmail : user.studentProfile?.nextOfKinEmail)?.trim() || null;
+  const avatar = data.avatar !== undefined ? data.avatar : user.avatar;
+
   const isCompleted = Boolean(
-    name && phone && passport && nationality && address && (data.avatar || user.avatar),
+    name &&
+    phone &&
+    user.email &&
+    avatar &&
+    passport &&
+    nationality &&
+    address &&
+    dateOfBirth &&
+    gender &&
+    nextOfKinRelationship &&
+    nextOfKinName &&
+    nextOfKinPhone &&
+    nextOfKinEmail
   );
 
   // Update User table base credentials
@@ -120,13 +184,13 @@ export async function updateStudentProfile(userId: string, data: Record<string, 
   });
 
   const profileData = {
-    nextOfKinName: data.nextOfKinName?.trim() || null,
-    nextOfKinRelationship: data.nextOfKinRelationship?.trim() || null,
-    nextOfKinPhone: data.nextOfKinPhone?.trim() || null,
-    nextOfKinEmail: data.nextOfKinEmail?.trim() || null,
+    nextOfKinName,
+    nextOfKinRelationship,
+    nextOfKinPhone,
+    nextOfKinEmail,
     address,
-    dateOfBirth: parseSafeDate(data.dateOfBirth),
-    gender: data.gender?.trim() || null,
+    dateOfBirth,
+    gender,
     nationality,
     passport,
     isCompleted,
@@ -219,11 +283,38 @@ export async function uploadStudentAvatar(userId: string, file: Express.Multer.F
     isTemporary: "false",
   });
 
-  // Update user avatar in DB
-  await prisma.user.update({
+  // Update user avatar in DB and sync profile completion
+  const user = await prisma.user.update({
     where: { id: userId },
     data: { avatar: uploaded.fullUrl },
+    include: { studentProfile: true },
   });
+
+  if (user.studentProfile) {
+    const sp = user.studentProfile;
+    const isCompleted = Boolean(
+      user.name?.trim() &&
+      user.phone?.trim() &&
+      user.email?.trim() &&
+      uploaded.fullUrl?.trim() &&
+      sp.passport?.trim() &&
+      sp.nationality?.trim() &&
+      (sp.address?.trim() || user.address?.trim()) &&
+      sp.dateOfBirth &&
+      sp.gender?.trim() &&
+      sp.nextOfKinRelationship?.trim() &&
+      sp.nextOfKinName?.trim() &&
+      sp.nextOfKinPhone?.trim() &&
+      sp.nextOfKinEmail?.trim()
+    );
+
+    if (sp.isCompleted !== isCompleted) {
+      await prisma.studentProfile.update({
+        where: { userId },
+        data: { isCompleted },
+      });
+    }
+  }
 
   return {
     avatarUrl: uploaded.fullUrl,
@@ -339,5 +430,95 @@ export async function generateDynamicStudentId(params: {
     yearCode,
     semCode,
     sequence: String(nextSeq).padStart(4, "0"),
+  };
+}
+
+export async function verifyStudentCredential(identifier: string) {
+  if (!identifier || !identifier.trim()) {
+    return {
+      verified: false,
+      message: "No credential identifier provided",
+    };
+  }
+
+  const cleanId = identifier.trim();
+
+  // Search by official studentId, or userId UUID
+  const profile = await prisma.studentProfile.findFirst({
+    where: {
+      OR: [
+        { studentId: { equals: cleanId, mode: "insensitive" } },
+        { userId: cleanId },
+      ],
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          avatar: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          applications: {
+            where: { status: "APPROVED" },
+            select: {
+              id: true,
+              status: true,
+              createdAt: true,
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                  thumbnail: true,
+                },
+              },
+            },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  if (!profile || !profile.user) {
+    return {
+      verified: false,
+      message: `No student record found matching credential ID "${cleanId}".`,
+    };
+  }
+
+  const { user } = profile;
+
+  // Check verification conditions:
+  // Must have studentId and program
+  const hasStudentId = Boolean(profile.studentId?.trim());
+  const hasProgram = Boolean(profile.program?.trim());
+
+  if (!hasStudentId || !hasProgram) {
+    return {
+      verified: false,
+      message: "This student record is currently pending administrative clearance for credential issuance.",
+    };
+  }
+
+  return {
+    verified: true,
+    credential: {
+      studentId: profile.studentId,
+      name: user.name,
+      avatar: user.avatar,
+      program: profile.program,
+      startedSemester: profile.startedSemester || "Current",
+      startedYear: profile.startedYear || "Current",
+      nationality: profile.nationality || null,
+      status: user.isActive ? "Active & Verified Student" : "Inactive Student",
+      issuedAt: profile.updatedAt || user.createdAt,
+      institution: "ProGemini Academy",
+      institutionUrl: "https://progemini.academy",
+      accreditation: "Officially Cleared & Authenticated Credential",
+      approvedCourseTitle: user.applications?.[0]?.course?.title || profile.program,
+    },
   };
 }

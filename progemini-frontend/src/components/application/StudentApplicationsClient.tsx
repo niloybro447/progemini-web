@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
-import { FaEye, FaTrash, FaClock, FaCheck, FaTimes } from "react-icons/fa";
+import { FaEye, FaTrash, FaClock, FaCheck, FaTimes, FaLock, FaExclamationTriangle } from "react-icons/fa";
 import { apiClient } from '@/lib/apiClient';
+import { calculateProfileCompletion } from '@/lib/studentProfile';
 
 interface Application {
   id: string;
@@ -21,10 +22,29 @@ interface Application {
   };
 }
 
-export default function StudentApplicationsClient() {
+interface StudentApplicationsClientProps {
+  initialProfile?: any;
+}
+
+export default function StudentApplicationsClient({ initialProfile }: StudentApplicationsClientProps = {}) {
+  const [profile, setProfile] = useState<any>(initialProfile || null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
+
+  useEffect(() => {
+    if (!initialProfile) {
+      apiClient
+        .get<any>("/v1/student/profile")
+        .then((res) => {
+          setProfile(res?.profile || res);
+        })
+        .catch(() => {});
+    }
+  }, [initialProfile]);
+
+  const { isComplete: isProfileComplete, percentage: profilePercentage } =
+    calculateProfileCompletion(profile);
 
   useEffect(() => {
     fetchApplications();
@@ -93,15 +113,55 @@ export default function StudentApplicationsClient() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">My Applications</h1>
-          <p className="text-gray-600 mt-1">Track your course applications</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">My Applications</h1>
+          <p className="text-gray-600 mt-1 text-xs sm:text-sm">Track your course applications</p>
         </div>
-        <Link href="/student/apply" className="btn-primary">
-          + New Application
-        </Link>
+
+        {isProfileComplete ? (
+          <Link href="/student/apply" className="btn-primary">
+            + New Application
+          </Link>
+        ) : (
+          <div className="relative group">
+            <button
+              disabled
+              className="px-4 py-2 bg-gray-200 text-gray-400 font-semibold rounded-lg cursor-not-allowed flex items-center gap-1.5 text-sm shadow-none border border-gray-300"
+              title="Complete your student profile (100%) to create a new application"
+            >
+              <FaLock className="text-xs" />
+              + New Application
+            </button>
+            <div className="absolute right-0 top-full mt-1 hidden group-hover:block bg-gray-900 text-white text-xs rounded-md p-2 whitespace-nowrap z-20 shadow-lg pointer-events-none">
+              Complete your profile (100%) to unlock course applications
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Incomplete Profile Alert Banner */}
+      {!isProfileComplete && (
+        <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <FaExclamationTriangle className="text-amber-600 text-2xl flex-shrink-0" />
+            <div>
+              <p className="font-bold text-sm">
+                Student Profile Incomplete ({profilePercentage}%)
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                You must complete all information in your official student profile before you can apply for courses.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/student/profile?complete_required=true"
+            className="px-4 py-2 bg-brand-primary hover:bg-red-700 text-white rounded-lg text-xs font-semibold transition whitespace-nowrap shadow-sm self-start sm:self-auto"
+          >
+            Complete Profile Now
+          </Link>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-2">
@@ -155,9 +215,29 @@ export default function StudentApplicationsClient() {
           <p className="text-gray-600 mb-6">
             Start your learning journey by applying for a course
           </p>
-          <Link href="/student/apply" className="btn-primary inline-block">
-            Apply Now
-          </Link>
+          {isProfileComplete ? (
+            <Link href="/student/apply" className="btn-primary inline-block">
+              Apply Now
+            </Link>
+          ) : (
+            <div className="space-y-3">
+              <button
+                disabled
+                className="px-5 py-2.5 bg-gray-200 text-gray-400 font-semibold rounded-lg cursor-not-allowed inline-flex items-center gap-2 border border-gray-300 text-sm"
+              >
+                <FaLock className="text-xs" />
+                Apply Now (Profile Incomplete)
+              </button>
+              <div>
+                <Link
+                  href="/student/profile?complete_required=true"
+                  className="text-sm font-semibold text-brand-primary hover:underline block"
+                >
+                  Complete your profile ({profilePercentage}%) to apply →
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid gap-4">

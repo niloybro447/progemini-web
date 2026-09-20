@@ -24,7 +24,7 @@ export default async function UserDetailPage({ params }: { params: { id: string 
   const user = await getUser(params.id);
 
   if (!user) {
-    redirect('/admin/users/manage');
+    redirect('/admin/users');
   }
 
   return <AdminUserDetailClient initialUser={user} />;

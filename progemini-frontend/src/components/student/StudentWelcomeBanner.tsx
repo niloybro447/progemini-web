@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { FaIdCard, FaTimes, FaArrowRight, FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
 import { apiClient } from "@/lib/apiClient";
 
+import { calculateProfileCompletion } from "@/lib/studentProfile";
+
 interface StudentWelcomeBannerProps {
   initialProfile?: any;
 }
@@ -42,25 +44,12 @@ export default function StudentWelcomeBanner({ initialProfile }: StudentWelcomeB
 
   if (dismissed || loading) return null;
 
-  const sp = profile?.studentProfile;
-  const isCompleted = sp?.isCompleted;
+  const { percentage, isComplete, missingFields } = calculateProfileCompletion(profile);
 
-  if (isCompleted) return null;
+  // If the profile is fully completed, hide the banner completely
+  if (isComplete || profile?.studentProfile?.isCompleted) return null;
 
-  // Calculate missing required fields
-  const requiredChecks = [
-    { label: "Name", done: Boolean(profile?.name?.trim()) },
-    { label: "Phone", done: Boolean(profile?.phone?.trim()) },
-    { label: "Passport", done: Boolean(sp?.passport?.trim()) },
-    { label: "Nationality", done: Boolean(sp?.nationality?.trim()) },
-    { label: "Address", done: Boolean(sp?.address?.trim() || profile?.address?.trim()) },
-    { label: "Profile Photo", done: Boolean(profile?.avatar) },
-  ];
-
-  const completedCount = requiredChecks.filter((c) => c.done).length;
-  const totalCount = requiredChecks.length;
-  const percent = Math.round((completedCount / totalCount) * 100);
-  const missingLabels = requiredChecks.filter((c) => !c.done).map((c) => c.label);
+  const missingLabels = missingFields.map((c) => c.label);
 
   const handleDismiss = () => {
     sessionStorage.setItem("progemini_welcome_banner_dismissed", "true");
@@ -80,7 +69,7 @@ export default function StudentWelcomeBanner({ initialProfile }: StudentWelcomeB
               <div className="flex items-center gap-2">
                 <span className="font-bold text-sm sm:text-base">Welcome to ProGemini Academy!</span>
                 <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-400 text-red-950">
-                  Profile Incomplete ({percent}%)
+                  Profile Incomplete ({percentage}%)
                 </span>
               </div>
               <p className="text-xs sm:text-sm text-red-100 mt-0.5">
@@ -119,7 +108,7 @@ export default function StudentWelcomeBanner({ initialProfile }: StudentWelcomeB
         <div className="mt-2 w-full bg-black/20 rounded-full h-1.5 overflow-hidden">
           <div
             className="bg-yellow-400 h-full transition-all duration-500 rounded-full"
-            style={{ width: `${percent}%` }}
+            style={{ width: `${percentage}%` }}
           />
         </div>
       </div>

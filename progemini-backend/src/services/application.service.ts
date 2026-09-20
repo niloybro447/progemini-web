@@ -26,6 +26,34 @@ export async function createApplication(userId: string, data: Record<string, unk
   });
   if (!course) throw AppError.badRequest("Course not found");
 
+  // Verify student profile completeness before allowing application
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { studentProfile: true },
+  });
+  if (!user) throw AppError.notFound("User not found");
+
+  const sp = user.studentProfile;
+  const isProfileComplete = Boolean(
+    user.name?.trim() &&
+    user.phone?.trim() &&
+    user.email?.trim() &&
+    user.avatar?.trim() &&
+    sp?.passport?.trim() &&
+    sp?.nationality?.trim() &&
+    (sp?.address?.trim() || user.address?.trim()) &&
+    sp?.dateOfBirth &&
+    sp?.gender?.trim() &&
+    sp?.nextOfKinRelationship?.trim() &&
+    sp?.nextOfKinName?.trim() &&
+    sp?.nextOfKinPhone?.trim() &&
+    sp?.nextOfKinEmail?.trim()
+  );
+
+  if (!isProfileComplete) {
+    throw AppError.badRequest("Please complete all information in your official student profile before applying for courses.");
+  }
+
   const documentFiles = (data.documentFiles as string[]) || [];
 
   const application = await prisma.application.create({
@@ -113,10 +141,17 @@ export async function createApplication(userId: string, data: Record<string, unk
   return application;
 }
 
-export async function listApplications(userId: string, role: string, status?: string) {
+export async function listApplications(
+  userId: string,
+  role: string,
+  status?: string,
+  targetUserId?: string,
+) {
   const where: Record<string, unknown> = {};
   if (role !== "ADMIN") {
     where.userId = userId;
+  } else if (targetUserId) {
+    where.userId = targetUserId;
   }
   if (status) {
     where.status = status;
@@ -128,7 +163,7 @@ export async function listApplications(userId: string, role: string, status?: st
     include: {
       course: { select: { id: true, title: true, thumbnail: true, price: true, discountPrice: true } },
       files: true,
-      ...(role === "ADMIN" ? { user: { select: { id: true, name: true, email: true, avatar: true } } } : {}),
+      user: { select: { id: true, name: true, email: true, avatar: true } },
     },
   });
 }

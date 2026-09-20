@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { serverFetch } from "@/lib/serverApi";
 import ApplicationForm from "@/components/application/ApplicationForm";
+import { calculateProfileCompletion } from "@/lib/studentProfile";
 
 export default async function ApplyPage() {
   const session = await getServerSession(authOptions);
@@ -18,6 +19,11 @@ export default async function ApplyPage() {
   ]);
 
   const profile = profileRes?.profile || profileRes || null;
+  const { isComplete } = calculateProfileCompletion(profile);
+
+  if (!isComplete) {
+    redirect("/student/profile?complete_required=true");
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

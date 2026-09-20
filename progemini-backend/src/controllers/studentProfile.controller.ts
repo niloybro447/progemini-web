@@ -48,3 +48,19 @@ export const generateStudentId = asyncHandler(async (req: Request, res: Response
   });
 });
 
+export const verifyCredential = asyncHandler(async (req: Request, res: Response) => {
+  const identifier = (req.params.studentId || req.query.id || req.params.id) as string;
+  const result = await sps.verifyStudentCredential(identifier);
+  if (!result.verified) {
+    res.status(StatusCodes.NOT_FOUND).json({
+      success: false,
+      ...result,
+    });
+    return;
+  }
+  res.status(StatusCodes.OK).json({
+    success: true,
+    ...result,
+  });
+});
+

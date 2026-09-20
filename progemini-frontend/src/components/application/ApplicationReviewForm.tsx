@@ -53,9 +53,10 @@ interface Application {
 
 interface Props {
   application: Application;
+  onUpdated?: (updated: any) => void;
 }
 
-export default function ApplicationReviewForm({ application }: Props) {
+export default function ApplicationReviewForm({ application, onUpdated }: Props) {
   const router = useRouter();
   const [status, setStatus] = useState(application.status);
   const [feedback, setFeedback] = useState(application.adminFeedback || "");
@@ -66,12 +67,15 @@ export default function ApplicationReviewForm({ application }: Props) {
     setLoading(true);
 
     try {
-      await apiClient.patch(`/v1/applications/${application.id}`, {
+      const res = await apiClient.patch<any>(`/v1/applications/${application.id}`, {
         status,
         adminFeedback: feedback || null,
       });
 
       toast.success("Application updated successfully");
+      if (onUpdated) {
+        onUpdated(res || { ...application, status, adminFeedback: feedback || null });
+      }
       router.refresh();
     } catch (error) {
       toast.error("Failed to update application");

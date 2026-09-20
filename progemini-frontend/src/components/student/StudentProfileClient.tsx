@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import Image from "next/image";
+import { calculateProfileCompletion } from "@/lib/studentProfile";
 import {
   FaEnvelope,
   FaPhone,
@@ -27,6 +28,9 @@ import {
 } from "react-icons/fa";
 import { apiClient } from "@/lib/apiClient";
 import { getFileUrl } from "@/lib/utils";
+
+import StudentDigitalIdCard from "./StudentDigitalIdCard";
+import IdCardEligibilityTracker from "./IdCardEligibilityTracker";
 
 interface StudentProfile {
   id?: string;
@@ -57,6 +61,7 @@ interface User {
   role: string;
   createdAt: Date | string;
   studentProfile?: StudentProfile | null;
+  applications?: any[];
   enrollments?: any[];
   _count?: {
     enrollments?: number;
@@ -70,6 +75,10 @@ interface StudentProfileClientProps {
 
 export default function StudentProfileClient({ user: initialUser }: StudentProfileClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const completeRequired =
+    searchParams.get("complete_required") === "true" ||
+    searchParams.get("required_for_application") === "true";
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [user, setUser] = useState<User>(initialUser);
@@ -163,7 +172,6 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
 
     if (!["image/jpeg", "image/png", "image/webp", "image/jpg"].includes(file.type)) {
       toast.error("Please select a valid image (JPEG, PNG, or WebP).");
-      return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
@@ -212,22 +220,35 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
   };
 
   // Real student-provided data completeness calculation
-  const requiredFields = [
-    { label: "Full Name", value: user?.name },
-    { label: "Verified Contact", value: user?.phone },
-    { label: "Verified Email", value: user?.email },
-    { label: "Passport", value: sp?.passport },
-    { label: "Nationality", value: sp?.nationality },
-    { label: "Address", value: sp?.address || user?.address },
-    { label: "Profile Photo", value: user?.avatar },
-  ];
+  const {
+    fields: requiredFields,
+    percentage: completionPercentage,
+    isComplete: isProfileComplete,
+  } = calculateProfileCompletion(user);
 
-  const completedFields = requiredFields.filter((f) => Boolean(f.value?.trim?.() || f.value)).length;
-  const isProfileComplete = completedFields === requiredFields.length;
-  const completionPercentage = Math.round((completedFields / requiredFields.length) * 100);
+  // Digital Student ID Card Gating Conditions:
+  // 1. Profile completed
+  // 2. Applied for an application
+  // 3. Application officially approved by admin
+  // 4. Academic Program & Started Semester/Year available and cleared by admin
+  // 5. Unique Student ID issued and cleared by admin
+  const hasApplied = Boolean(user.applications && user.applications.length > 0);
+  const hasApprovedApplication = Boolean(
+    user.applications?.some((app: any) => app.status === "APPROVED")
+  );
+  const hasProgram = Boolean(sp?.program?.trim());
+  const hasIntake = Boolean(sp?.startedSemester?.trim() && sp?.startedYear?.trim());
+  const hasStudentId = Boolean(sp?.studentId?.trim());
+
+  const isIdCardUnlocked =
+    isProfileComplete &&
+    hasApprovedApplication &&
+    hasProgram &&
+    hasIntake &&
+    hasStudentId;
 
   return (
-    <div className="container mx-auto px-3 sm:px-6 py-6 max-w-7xl">
+    <div className="container mx-auto px-3 sm:px-6 py-4 sm:py-6 max-w-7xl">
       {/* Hidden file input for photo upload */}
       <input
         type="file"
@@ -238,9 +259,9 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
       />
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 mb-5 sm:mb-6 pb-4 border-b border-gray-200">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
             <FaIdCard className="text-brand-primary" />
             Student Profile
           </h1>
@@ -251,136 +272,57 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
 
         <button
           onClick={() => setIsEditing(true)}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-brand-primary hover:bg-red-700 text-white font-medium text-sm transition shadow-sm"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-lg bg-brand-primary hover:bg-red-700 text-white font-medium text-xs sm:text-sm transition shadow-sm"
         >
           <FaEdit />
           Edit Profile Information
         </button>
       </div>
 
+      {/* Action Required Banner if redirected from apply page */}
+      {completeRequired && !isProfileComplete && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <FaExclamationTriangle className="text-amber-600 text-2xl flex-shrink-0" />
+            <div>
+              <p className="font-bold text-sm">Action Required to Start an Application</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                You must complete all information in your official student profile (100%) before you can create a new course application.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsEditing(true)}
+            className="px-4 py-2 bg-brand-primary text-white rounded-lg text-xs font-semibold hover:bg-red-700 transition whitespace-nowrap shadow-sm self-start sm:self-auto"
+          >
+            Complete Profile Now
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Digital Student ID Card & Photo Upload (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Official Digital Student ID Card */}
-          <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-brand-secondary rounded-2xl p-6 text-white shadow-xl relative overflow-hidden border border-gray-700">
-            {/* Holographic / decorative background accents */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-primary/20 rounded-full blur-2xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-yellow-500/10 rounded-full blur-2xl pointer-events-none" />
-
-            {/* Card Header */}
-            <div className="flex items-center justify-between border-b border-gray-700 pb-3 mb-4">
-              <div>
-                <span className="text-[10px] uppercase tracking-widest text-red-400 font-bold block">
-                  ProGemini Academy
-                </span>
-                <span className="text-xs font-semibold tracking-wider text-gray-300">
-                  DIGITAL STUDENT ID
-                </span>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center border border-white/10">
-                <FaQrcode className="text-yellow-400 text-lg" />
-              </div>
-            </div>
-
-            {/* Photo & Identity Hero */}
-            <div className="text-center">
-              <div className="relative inline-block mx-auto mb-3">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-brand-primary shadow-lg bg-gray-800 relative mx-auto">
-                  {user.avatar ? (
-                    <Image
-                      src={getFileUrl(user.avatar)}
-                      alt={user.name}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-gray-400">
-                      <FaUser className="text-3xl mb-1 text-gray-500" />
-                      <span className="text-[10px]">No Photo</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Upload Action Overlay */}
-                <div className="mt-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingPhoto}
-                    className="text-[11px] font-semibold text-yellow-300 hover:text-yellow-200 inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full border border-white/20 transition disabled:opacity-50"
-                  >
-                    <FaCamera className="text-[10px]" />
-                    {user.avatar ? "Change Photo" : "Upload Photo"}
-                  </button>
-                </div>
-
-                {uploadingPhoto && (
-                  <div className="absolute inset-0 bg-black/70 rounded-xl flex items-center justify-center text-xs text-yellow-300 font-semibold">
-                    Uploading photo...
-                  </div>
-                )}
-              </div>
-
-              <h2 className="text-lg font-bold text-white tracking-wide">{user.name}</h2>
-              <span
-                className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                  sp?.studentId
-                    ? "bg-red-600/30 text-red-300 border border-red-500/30"
-                    : "bg-gray-700/60 text-gray-400 border border-gray-600/30"
-                }`}
-              >
-                {sp?.studentId ? `ID: ${sp.studentId}` : "ID: Pending Assignment"}
-              </span>
-            </div>
-
-            {/* ID Card Metadata */}
-            <div className="mt-4 pt-3 border-t border-gray-700/60 space-y-2 text-xs">
-              <div className="flex justify-between items-center text-gray-300">
-                <span className="text-gray-400">Program:</span>
-                <span
-                  className={`font-semibold text-right max-w-[200px] truncate ${
-                    sp?.program ? "text-gray-100" : "text-gray-500 italic"
-                  }`}
-                  title={sp?.program || "Not Enrolled"}
-                >
-                  {sp?.program || "Not Enrolled"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-gray-300">
-                <span className="text-gray-400">Started:</span>
-                <span
-                  className={`font-medium text-right truncate max-w-[200px] ${
-                    sp?.startedSemester || sp?.startedYear ? "text-gray-200" : "text-gray-500 italic"
-                  }`}
-                >
-                  {sp?.startedSemester || sp?.startedYear
-                    ? `${sp?.startedSemester || ""} ${sp?.startedYear || ""}`.trim()
-                    : "Pending"}
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-gray-300">
-                <span className="text-gray-400">Status:</span>
-                {isProfileComplete ? (
-                  <span className="inline-flex items-center gap-1 font-semibold text-green-400">
-                    <FaCheckCircle className="text-[10px]" /> Verified Student
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 font-semibold text-yellow-400">
-                    <FaClock className="text-[10px]" /> Incomplete Profile
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Barcode Mock */}
-            <div className="mt-4 pt-3 border-t border-gray-700/60 text-center">
-              <div className="font-mono tracking-widest text-[9px] text-gray-400">
-                || | ||| |||| | ||| || ||||| ||| || | ||
-              </div>
-              <span className="text-[9px] text-gray-500 block mt-0.5">
-                Official Digital Credential • ProGemini Academy
-              </span>
-            </div>
-          </div>
+          {/* Official Digital Student ID Card or Clearance Eligibility Tracker */}
+          {isIdCardUnlocked ? (
+            <StudentDigitalIdCard
+              user={user}
+              onPhotoClick={() => fileInputRef.current?.click()}
+            />
+          ) : (
+            <IdCardEligibilityTracker
+              isProfileComplete={isProfileComplete}
+              hasApplied={hasApplied}
+              hasApprovedApplication={hasApprovedApplication}
+              hasProgram={hasProgram}
+              hasIntake={hasIntake}
+              hasStudentId={hasStudentId}
+              studentIdValue={sp?.studentId}
+              programValue={sp?.program}
+              intakeValue={`${sp?.startedSemester || ""} ${sp?.startedYear || ""}`.trim()}
+              onCompleteProfileClick={() => setIsEditing(true)}
+            />
+          )}
 
           {/* Profile Completion Card */}
           <div className="card p-5 bg-white shadow-sm border border-gray-200">
@@ -404,23 +346,20 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
             </div>
 
             <div className="space-y-2 text-xs">
-              {requiredFields.map((field) => {
-                const filled = Boolean(field.value?.trim?.() || field.value);
-                return (
-                  <div key={field.label} className="flex items-center justify-between">
-                    <span className="text-gray-600">{field.label}</span>
-                    {filled ? (
-                      <span className="text-green-600 font-semibold flex items-center gap-1">
-                        <FaCheckCircle className="text-[10px]" /> Complete
-                      </span>
-                    ) : (
-                      <span className="text-red-500 font-semibold flex items-center gap-1">
-                        <FaExclamationTriangle className="text-[10px]" /> Required
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+              {requiredFields.map((field) => (
+                <div key={field.key} className="flex items-center justify-between">
+                  <span className="text-gray-600">{field.label}</span>
+                  {field.done ? (
+                    <span className="text-green-600 font-semibold flex items-center gap-1">
+                      <FaCheckCircle className="text-[10px]" /> Complete
+                    </span>
+                  ) : (
+                    <span className="text-red-500 font-semibold flex items-center gap-1">
+                      <FaExclamationTriangle className="text-[10px]" /> Required
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
 
             <button
@@ -436,8 +375,8 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
         {/* Right Column: Institutional & Identity Details Sections (8 cols) */}
         <div className="lg:col-span-8 space-y-6">
           {/* Section 1: Academic & Institutional Records */}
-          <div className="card p-5 sm:p-6 bg-white shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+          <div className="card p-4 sm:p-6 bg-white shadow-sm border border-gray-200 rounded-xl">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 flex-wrap gap-2">
               <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <FaGraduationCap className="text-brand-primary" />
                 Academic & Institutional Records
@@ -447,7 +386,7 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs sm:text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <span className="text-gray-500 text-xs block font-medium">Student ID</span>
                 {sp?.studentId ? (
@@ -480,8 +419,8 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
           </div>
 
           {/* Section 2: Personal & Identity Details */}
-          <div className="card p-5 sm:p-6 bg-white shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+          <div className="card p-4 sm:p-6 bg-white shadow-sm border border-gray-200 rounded-xl">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 flex-wrap gap-2">
               <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <FaPassport className="text-brand-primary" />
                 Personal & Identity Details
@@ -491,7 +430,7 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs sm:text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
               <div>
                 <span className="text-gray-500 text-xs font-medium block">Full Name *</span>
                 <span className="font-bold text-gray-900 mt-1 block">{user.name}</span>
@@ -580,15 +519,15 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
           </div>
 
           {/* Section 3: Next of Kin & Address */}
-          <div className="card p-5 sm:p-6 bg-white shadow-sm border border-gray-200">
-            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+          <div className="card p-4 sm:p-6 bg-white shadow-sm border border-gray-200 rounded-xl">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 flex-wrap gap-2">
               <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <FaUserFriends className="text-brand-primary" />
                 Next of Kin & Address
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs sm:text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm">
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
                 <span className="text-gray-500 text-xs block font-medium">Next of Kin Relationship</span>
                 {sp?.nextOfKinRelationship ? (
@@ -634,7 +573,7 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
                 )}
               </div>
 
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 sm:col-span-2">
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-100 sm:col-span-2 md:col-span-3">
                 <span className="text-gray-500 text-xs block font-medium">Address *</span>
                 {sp?.address || user?.address ? (
                   <span className="font-medium text-gray-900 mt-1 flex items-start gap-1.5">
@@ -657,12 +596,12 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
 
       {/* Edit Profile Modal Dialog */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 flex items-center justify-center p-2.5 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[92vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
+            <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Edit Student Profile</h3>
+                <h3 className="text-base sm:text-lg font-bold text-gray-900">Edit Student Profile</h3>
                 <p className="text-xs text-gray-500">
                   Update your official identity, next of kin contact, and address.
                 </p>
@@ -676,7 +615,7 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
             </div>
 
             {/* Modal Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* Required Information Section */}
               <div>
                 <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
@@ -869,19 +808,19 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={handleCancel}
                   disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                  className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-brand-primary hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-sm"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-brand-primary hover:bg-red-700 text-white rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 shadow-sm"
                 >
                   <FaSave />
                   {loading ? "Saving Changes..." : "Save Profile"}

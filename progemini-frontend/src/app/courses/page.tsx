@@ -3,7 +3,6 @@ import Footer from '@/components/Footer';
 import { serverFetch } from '@/lib/serverApi';
 import CourseCard from '@/components/courses/CourseCard';
 import Link from 'next/link';
-import Image from 'next/image';
 
 interface CoursesPageProps {
   searchParams: {
@@ -54,15 +53,12 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
           <div className="lg:col-span-1">
             <div className="card p-6 sticky top-24">
               <h3 className="font-bold text-brand-secondary mb-4">Categories</h3>
-              <ul className="space-y-2">
+              <ul className="space-y-1">
                 <li>
                   <Link 
                     href="/courses" 
-                    className={`flex items-center gap-2 py-2 px-3 rounded hover:bg-red-50 hover:text-brand-primary transition-colors whitespace-nowrap ${!searchParams.category ? 'bg-red-50 text-brand-primary font-semibold' : 'text-gray-700'}`}
+                    className={`block py-2.5 px-3 rounded-lg hover:bg-red-50 hover:text-brand-primary transition-colors text-sm ${!searchParams.category ? 'bg-red-50 text-brand-primary font-semibold' : 'text-gray-700 font-medium'}`}
                   >
-                    <div className="w-5 h-5 flex items-center justify-center bg-gray-100 rounded">
-                      <span className="text-xs">📚</span>
-                    </div>
                     All Courses
                   </Link>
                 </li>
@@ -70,20 +66,8 @@ export default async function CoursesPage({ searchParams }: CoursesPageProps) {
                   <li key={category.id}>
                     <Link 
                       href={`/courses?category=${category.slug}`}
-                      className={`flex items-center gap-2 py-2 px-3 rounded hover:bg-red-50 hover:text-brand-primary transition-colors whitespace-nowrap ${searchParams.category === category.slug ? 'bg-red-50 text-brand-primary font-semibold' : 'text-gray-700'}`}
+                      className={`block py-2.5 px-3 rounded-lg hover:bg-red-50 hover:text-brand-primary transition-colors text-sm ${searchParams.category === category.slug ? 'bg-red-50 text-brand-primary font-semibold' : 'text-gray-700 font-medium'}`}
                     >
-                      <div className="w-5 h-5 relative flex-shrink-0">
-                        {category.icon && category.icon.startsWith('/') ? (
-                          <Image
-                            src={category.icon}
-                            alt={category.name}
-                            fill
-                            className="object-contain"
-                          />
-                        ) : (
-                          <span>{category.icon}</span>
-                        )}
-                      </div>
                       {category.name}
                     </Link>
                   </li>

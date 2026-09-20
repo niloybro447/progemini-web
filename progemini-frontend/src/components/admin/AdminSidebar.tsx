@@ -3,16 +3,42 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { FaTachometerAlt, FaUsers, FaBook, FaCog, FaSignOutAlt, FaFileAlt, FaCalendarCheck, FaTimes, FaChevronDown, FaGlobe, FaImage, FaEnvelope, FaChalkboardTeacher, FaUniversity, FaPaperPlane, FaAddressBook, FaPlusCircle } from 'react-icons/fa';
+import {
+  FaTachometerAlt,
+  FaUsers,
+  FaBook,
+  FaCog,
+  FaSignOutAlt,
+  FaFileAlt,
+  FaCalendarCheck,
+  FaTimes,
+  FaChevronDown,
+  FaGlobe,
+  FaImage,
+  FaEnvelope,
+  FaChalkboardTeacher,
+  FaUniversity,
+  FaPaperPlane,
+  FaAddressBook,
+  FaPlusCircle,
+  FaShieldAlt,
+  FaIdCard,
+  FaCertificate,
+} from 'react-icons/fa';
 import { signOut } from 'next-auth/react';
 import { useState } from 'react';
 
 const menuItems = [
   { icon: FaTachometerAlt, label: 'Dashboard', href: '/admin' },
-  { icon: FaUsers, label: 'User Management', href: '/admin/users/manage' },
+  { icon: FaUsers, label: 'User Management', href: '/admin/users' },
   { icon: FaFileAlt, label: 'Applications', href: '/admin/applications' },
   { icon: FaEnvelope, label: 'Enquiries', href: '/admin/enquiries' },
   { icon: FaBook, label: 'All Courses', href: '/admin/courses' },
+];
+
+const verificationItems = [
+  { icon: FaIdCard, label: 'Digital ID Card', href: '/admin/verification/id-card' },
+  { icon: FaCertificate, label: 'Certification', href: '/admin/verification/certification' },
 ];
 
 const emailMarketingItems = [
@@ -32,6 +58,9 @@ const webPagesItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const [verificationOpen, setVerificationOpen] = useState(
+    pathname.startsWith('/admin/verification')
+  );
   const [emailMarketingOpen, setEmailMarketingOpen] = useState(
     pathname.startsWith('/admin/email-marketing')
   );
@@ -73,7 +102,7 @@ export default function AdminSidebar() {
       {/* Menu Items */}
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {menuItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
           return (
             <Link
               key={item.href}
@@ -89,6 +118,45 @@ export default function AdminSidebar() {
             </Link>
           );
         })}
+
+        {/* Verification accordion */}
+        <div>
+          <button
+            onClick={() => setVerificationOpen((o) => !o)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${pathname.startsWith('/admin/verification')
+                ? 'bg-brand-primary text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              }`}
+          >
+            <span className="flex items-center gap-3">
+              <FaShieldAlt className="text-xl flex-shrink-0" />
+              <span>Verification</span>
+            </span>
+            <FaChevronDown className={`text-xs transition-transform ${verificationOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {verificationOpen && (
+            <div className="mt-1 ml-4 space-y-1 border-l border-gray-600 pl-3">
+              {verificationItems.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={handleNavClick}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${isActive
+                        ? 'bg-brand-primary text-white font-semibold'
+                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                      }`}
+                  >
+                    <item.icon className="flex-shrink-0 text-sm" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Email Marketing accordion */}
         <div>

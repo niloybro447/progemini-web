@@ -75,6 +75,7 @@ interface User {
   isActive: boolean;
   createdAt: Date | string;
   studentProfile?: StudentProfile | null;
+  applications?: any[];
   enrollments: any[];
   _count: {
     enrollments: number;
@@ -317,6 +318,7 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
             ...prev.studentProfile,
             ...(updatedUser.studentProfile || updatedUser),
           },
+          applications: updatedUser.applications ?? prev.applications,
         }));
       }
 
@@ -341,6 +343,31 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
       return String(date);
     }
   };
+
+  // Digital Student ID Card Clearance evaluation
+  const approvedApplications = (user.applications || []).filter(
+    (app: any) => app.status === "APPROVED"
+  );
+  const hasApprovedApp = approvedApplications.length > 0;
+  const isProfileComplete = Boolean(sp.isCompleted);
+  const hasProgram = Boolean(sp.program && sp.program.trim().length > 0);
+  const hasIntake = Boolean(
+    sp.startedSemester &&
+    sp.startedSemester.trim().length > 0 &&
+    sp.startedYear &&
+    sp.startedYear.trim().length > 0
+  );
+  const hasStudentId = Boolean(sp.studentId && sp.studentId.trim().length > 0);
+  const isIdCardCleared =
+    isProfileComplete && hasApprovedApp && hasProgram && hasIntake && hasStudentId;
+
+  const clearanceMetCount = [
+    isProfileComplete,
+    hasApprovedApp,
+    hasProgram,
+    hasIntake,
+    hasStudentId,
+  ].filter(Boolean).length;
 
   return (
     <div className="space-y-6">
@@ -379,6 +406,182 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
           )}
         </div>
       </div>
+
+      {/* Digital ID Card Clearance Status Banner for Students */}
+      {user.role === "STUDENT" && (
+        <div
+          className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+            isIdCardCleared
+              ? "bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border-emerald-200 shadow-sm"
+              : "bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-amber-200 shadow-sm"
+          }`}
+        >
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div
+                className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-sm ${
+                  isIdCardCleared ? "bg-emerald-600 text-white" : "bg-amber-500 text-white"
+                }`}
+              >
+                <FaIdCard />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-gray-900 text-base">
+                    Digital Student ID Card Status:
+                  </h3>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      isIdCardCleared
+                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                        : "bg-amber-100 text-amber-800 border border-amber-300"
+                    }`}
+                  >
+                    {isIdCardCleared
+                      ? "✓ Cleared & Active (Visible to Student)"
+                      : `Locked (${clearanceMetCount}/5 Conditions Cleared)`}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  {isIdCardCleared
+                    ? "All profile, application approval, academic program, intake, and Student ID criteria are met. The student can view, flip, scan QR, and download their ID card."
+                    : "The student will only unlock their digital ID card once all 5 verification conditions are completed and cleared by administration."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+              {!isIdCardCleared && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm(user);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5"
+                >
+                  <FaEdit />
+                  Clear Missing Details
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Condition Status Badges */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mt-4 pt-3.5 border-t border-black/5 text-xs">
+            {/* Condition 1: Profile Completion */}
+            <div
+              className={`p-2.5 rounded-lg border ${
+                isProfileComplete
+                  ? "bg-white border-emerald-200 text-emerald-800"
+                  : "bg-white border-gray-200 text-gray-500"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                {isProfileComplete ? (
+                  <FaCheckCircle className="text-emerald-600 text-xs" />
+                ) : (
+                  <FaTimes className="text-gray-400 text-xs" />
+                )}
+                1. Profile Complete
+              </div>
+              <span className="text-[11px] font-medium block mt-0.5 text-gray-700">
+                {isProfileComplete ? "Completed (100%)" : "Incomplete"}
+              </span>
+            </div>
+
+            {/* Condition 2: Application Approval */}
+            <div
+              className={`p-2.5 rounded-lg border ${
+                hasApprovedApp
+                  ? "bg-white border-emerald-200 text-emerald-800"
+                  : "bg-white border-gray-200 text-gray-500"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                {hasApprovedApp ? (
+                  <FaCheckCircle className="text-emerald-600 text-xs" />
+                ) : (
+                  <FaTimes className="text-gray-400 text-xs" />
+                )}
+                2. App Approved
+              </div>
+              <span
+                className="text-[11px] font-medium block mt-0.5 text-gray-700 truncate"
+                title={approvedApplications[0]?.course?.title || ""}
+              >
+                {hasApprovedApp ? "Approved" : "Pending / None"}
+              </span>
+            </div>
+
+            {/* Condition 3: Academic Program */}
+            <div
+              className={`p-2.5 rounded-lg border ${
+                hasProgram
+                  ? "bg-white border-emerald-200 text-emerald-800"
+                  : "bg-white border-gray-200 text-gray-500"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                {hasProgram ? (
+                  <FaCheckCircle className="text-emerald-600 text-xs" />
+                ) : (
+                  <FaTimes className="text-gray-400 text-xs" />
+                )}
+                3. Academic Program
+              </div>
+              <span
+                className="text-[11px] font-medium block mt-0.5 text-gray-700 truncate"
+                title={sp.program || ""}
+              >
+                {sp.program || "Not Cleared"}
+              </span>
+            </div>
+
+            {/* Condition 4: Started Semester & Year */}
+            <div
+              className={`p-2.5 rounded-lg border ${
+                hasIntake
+                  ? "bg-white border-emerald-200 text-emerald-800"
+                  : "bg-white border-gray-200 text-gray-500"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                {hasIntake ? (
+                  <FaCheckCircle className="text-emerald-600 text-xs" />
+                ) : (
+                  <FaTimes className="text-gray-400 text-xs" />
+                )}
+                4. Intake & Year
+              </div>
+              <span className="text-[11px] font-medium block mt-0.5 text-gray-700">
+                {hasIntake ? `${sp.startedSemester} ${sp.startedYear}` : "Not Cleared"}
+              </span>
+            </div>
+
+            {/* Condition 5: Student ID */}
+            <div
+              className={`p-2.5 rounded-lg border ${
+                hasStudentId
+                  ? "bg-white border-emerald-200 text-emerald-800"
+                  : "bg-white border-gray-200 text-gray-500"
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                {hasStudentId ? (
+                  <FaCheckCircle className="text-emerald-600 text-xs" />
+                ) : (
+                  <FaTimes className="text-gray-400 text-xs" />
+                )}
+                5. Student ID
+              </div>
+              <span className="text-[11px] font-bold block mt-0.5 font-mono text-brand-primary">
+                {sp.studentId || "Not Assigned"}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -843,16 +1046,34 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
 
                   {/* 2. Academic Program (Course list filtered by category) */}
                   <div className="sm:col-span-1 lg:col-span-3">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-gray-700 mb-1 flex items-center justify-between flex-wrap gap-1">
                       <span className="flex items-center gap-1">
                         <FaBook className="text-gray-400 text-[11px]" />
                         Academic Program (Course)
                       </span>
-                      {selectedCategoryId && (
-                        <span className="text-[10px] text-brand-primary font-medium">
-                          Filtered by category
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {approvedApplications.length > 0 &&
+                          approvedApplications[0]?.course?.title &&
+                          formData.program !== approvedApplications[0].course.title && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const appCourse = approvedApplications[0].course.title;
+                                setFormData((prev) => ({ ...prev, program: appCourse }));
+                                syncCategoryForProgram(appCourse, courses);
+                                toast.success(`Selected approved course: ${appCourse}`);
+                              }}
+                              className="text-[10px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 font-semibold transition"
+                            >
+                              Auto-fill approved: {approvedApplications[0].course.title.slice(0, 24)}...
+                            </button>
+                          )}
+                        {selectedCategoryId && (
+                          <span className="text-[10px] text-brand-primary font-medium">
+                            Filtered by category
+                          </span>
+                        )}
+                      </div>
                     </label>
                     <select
                       name="program"

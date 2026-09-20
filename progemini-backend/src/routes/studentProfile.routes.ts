@@ -31,4 +31,8 @@ router.patch(
   spc.adminUpdateProfile,
 );
 
+// Public Student Credential Verification endpoints (accessible to anyone scanning the QR code)
+router.get("/credentials/verify/:studentId", spc.verifyCredential);
+router.get("/credentials/verify", spc.verifyCredential);
+
 export default router;

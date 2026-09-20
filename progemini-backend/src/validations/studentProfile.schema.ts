@@ -23,6 +23,9 @@ export const updateStudentProfileSchema = z.object({
 });
 
 export const adminUpdateStudentProfileSchema = z.object({
+  params: z.object({
+    userId: z.string().min(1, "User ID is required"),
+  }),
   body: z.object({
     // Academic fields
     studentId: z.string().optional().nullable(),

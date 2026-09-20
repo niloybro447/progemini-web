@@ -683,4 +683,117 @@ Enrich the operational workflow description for Student Card & Student Informati
 4. Squashed local commits cleanly on top of `origin/main` without any secret leaks in tree or git history.
 5. Pushed cleanly to `origin/main`.
 
+686: ---
+687: 
+688: ## Update: Resolved 404 Error on Admin Users Route (`/admin/users`)
+689: 
+690: **Time:** 2026-09-20T12:50:00+06:00  
+691: **User Request:**
+692: - `admin/users` -> this route showing 404 error. This route connected to top left arrow button on student profile on admin account.
+693: 
+694: **Diagnosis & Root Cause:**
+695: 1. In Next.js App Router, the admin users directory `src/app/admin/users/` contained `[id]/`, `loading.tsx`, and `manage/`, but lacked a root `page.tsx`.
+696: 2. The student profile client ([AdminUserDetailClient.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/admin/AdminUserDetailClient.tsx#L350-L355)) top-left arrow button and the admin dashboard ([page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/page.tsx#L46)) both link to `/admin/users`.
+697: 3. Because `src/app/admin/users/page.tsx` was missing, navigating to `/admin/users` triggered a 404 Not Found error.
+698: 4. Additionally, the sidebar menu item had linked to `/admin/users/manage`, creating routing inconsistency, and `UsersManagement.tsx` had unsafe optional accesses on `user._count` and called `POST /v1/users/create` whereas the Express backend previously only mounted `POST /v1/users`.
+---
+
+## Update: Resolved 404 Error on Admin Users Route (`/admin/users`)
+
+**Time:** 2026-09-20T12:50:00+06:00  
+**User Request:**
+- `admin/users` -> this route showing 404 error. This route connected to top left arrow button on student profile on admin account.
+
+**Diagnosis & Root Cause:**
+1. In Next.js App Router, the admin users directory `src/app/admin/users/` contained `[id]/`, `loading.tsx`, and `manage/`, but lacked a root `page.tsx`.
+2. The student profile client ([AdminUserDetailClient.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/admin/AdminUserDetailClient.tsx#L350-L355)) top-left arrow button and the admin dashboard ([page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/page.tsx#L46)) both link to `/admin/users`.
+3. Because `src/app/admin/users/page.tsx` was missing, navigating to `/admin/users` triggered a 404 Not Found error.
+4. Additionally, the sidebar menu item had linked to `/admin/users/manage`, creating routing inconsistency, and `UsersManagement.tsx` had unsafe optional accesses on `user._count` and called `POST /v1/users/create` whereas the Express backend previously only mounted `POST /v1/users`.
+
+**Actions Executed:**
+1. **Created Canonical Admin Users Page ([page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/users/page.tsx)):**
+   - Implemented `AdminUsersPage` rendering `UsersManagement` with server-side authentication and `ADMIN` role verification.
+2. **Maintained Seamless Backward Compatibility ([manage/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/users/manage/page.tsx)):**
+   - Configured redirect from `/admin/users/manage` to `/admin/users`.
+3. **Unified Navigation & Active State ([AdminSidebar.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/admin/AdminSidebar.tsx)):**
+   - Updated User Management menu item href to `/admin/users`.
+   - Enhanced `isActive` matching logic to keep the sidebar item highlighted when navigating child routes such as `/admin/users/[id]`.
+4. **Updated Fallback Redirect ([users/[id]/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/users/%5Bid%5D/page.tsx)):**
+   - Updated missing user fallback redirect from `/admin/users/manage` to `/admin/users`.
+5. **Backend & Frontend Robustness:**
+   - In [user.routes.ts](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/src/routes/user.routes.ts), mounted `router.post("/create", ...)` alongside `router.post("/", ...)` to support student creation across both calling conventions.
+   - In [UsersManagement.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/admin/UsersManagement.tsx), added safe optional chaining `user._count?.courses ?? 0` and `user._count?.enrollments ?? 0`.
+
+**Verification:**
+- Frontend TypeScript check (`npx tsc --noEmit`): passed with 0 errors.
+- Backend TypeScript check (`npm run lint`): passed with 0 errors.
+- Verified `/admin/users` and `/admin/users/manage` routes return valid responses (HTTP 307 redirect to auth when unauthenticated, and full User Management table when logged in as admin).
+
+---
+
+## Update: Removed Icons from Categories Menu on Courses Page
+
+**Time:** 2026-09-20T12:54:00+06:00  
+**User Request:**
+- These icons are not visible... remove the icons from this categories menu.
+
+**Diagnosis & Root Cause:**
+1. In [src/app/courses/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/courses/page.tsx), the left Categories sidebar rendered a hardcoded emoji for "All Courses" and an `<Image src={category.icon} ... />` element for other categories.
+2. The database stored category icons with paths containing spaces (e.g. `/mega menu icons/Business.png`), while the local folder was named `mega-menu-icons`. This resulted in broken image placeholder icons in the browser.
+3. The user requested complete removal of the icons from this categories sidebar menu for a clean, text-based navigation experience.
+
+**Actions Executed:**
+1. **Removed Icons from Categories Sidebar Menu ([src/app/courses/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/courses/page.tsx)):**
+   - Removed the emoji container for "All Courses".
+   - Removed the `<Image>` container and text icon fallbacks for all category items.
+   - Styled the category links as clean, full-width block buttons with smooth hover and active states (`rounded-lg hover:bg-red-50 hover:text-brand-primary`).
+   - Removed the unused `Image` import from `next/image`.
+2. **Fixed Static Assets Availability:**
+   - Mirrored `public/mega-menu-icons` to `public/mega menu icons` so that any other components querying the path with spaces resolve properly without broken images.
+
+**Verification:**
+- Frontend TypeScript build check (`npx tsc --noEmit`): passed with 0 errors.
+- Browser subagent visual verification at `http://localhost:3000/courses`: verified clean, properly aligned text category items with zero broken image icons or emojis.
+
+---
+
+## Update: Fixed Profile Completion Progress Calculation & Enforced Application Creation Gating
+
+**Time:** 2026-09-20T13:03:00+06:00  
+**User Request:**
+- Profile complete progress bar showed incorrect information ("Profile Incomplete (100%)").
+- Ensure progress bar calculates true progress based strictly on student profile information (excluding Student ID, Academic Program, Started Semester & Year).
+- After completing their profile (100%), student can start a new application; otherwise they cannot create a new application and the "+ New Application" button is disabled.
+- Do not run browser test; provide clear instructions on what to check and provide feedback.
+
+**Diagnosis & Root Cause:**
+1. The welcome banner ([StudentWelcomeBanner.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/student/StudentWelcomeBanner.tsx)) only measured 6 hardcoded fields, while the profile card ([StudentProfileClient.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/student/StudentProfileClient.tsx)) measured 7 fields. Neither checked Date of Birth, Gender, or Next of Kin fields (Relationship, Name, Phone, Email).
+2. When the initial 6 fields were populated, the percentage evaluated to 100%, but the backend `studentProfile.isCompleted` flag was still `false` (because avatar upload and partial edits did not re-evaluate `isCompleted` dynamically). This caused the banner to contradictorily display: `Profile Incomplete (100%)`.
+3. The "+ New Application" and "Apply Now" buttons in [StudentApplicationsClient.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/application/StudentApplicationsClient.tsx) had no profile completion gate, allowing students with empty profiles to submit course applications.
+
+**Actions Executed:**
+1. **Created Centralized Profile Completion Logic ([src/lib/studentProfile.ts](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/lib/studentProfile.ts)):**
+   - Implemented `calculateProfileCompletion(user)` tracking all 13 student-provided fields: Full Name, Verified Phone, Verified Email, Profile Photo, Passport Number, Nationality, Present Address, Date of Birth, Sex/Gender, Next of Kin Relationship, Next of Kin Name, Next of Kin Phone, and Next of Kin Email.
+   - Strictly excludes admin-managed records (Student ID, Academic Program, Started Semester, Started Year).
+   - Only marks `isComplete: true` when all 13 fields are verified complete.
+2. **Fixed Welcome Banner ([StudentWelcomeBanner.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/student/StudentWelcomeBanner.tsx)):**
+   - Updated banner to use `calculateProfileCompletion`.
+   - Hidden completely when `isComplete` or `percentage === 100`.
+   - Accurately displays `Profile Incomplete ({percentage}%)` with matching progress bar width and missing field labels when incomplete.
+3. **Enhanced Student Profile Page ([StudentProfileClient.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/student/StudentProfileClient.tsx)):**
+   - Unified completeness stats with `calculateProfileCompletion`.
+   - Updated the Profile Completion card list to display real completion status for all 13 items.
+   - Added an alert banner when students are redirected from application pages prompting them to complete required profile fields.
+4. **Gated Application Creation ([StudentApplicationsClient.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/application/StudentApplicationsClient.tsx) & [apply/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/student/apply/page.tsx)):**
+   - Disabled "+ New Application" button with lock icon and tooltip when profile is incomplete.
+   - Disabled "Apply Now" button in empty application list state.
+   - Added amber alert banner in Applications page prompting students to complete their profile with direct link.
+   - Protected `/student/apply` page: redirects incomplete profiles to `/student/profile?complete_required=true`.
+5. **Backend Verification & Data Sync ([studentProfile.service.ts](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/src/services/studentProfile.service.ts) & [application.service.ts](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/src/services/application.service.ts)):**
+   - `getStudentProfile`, `updateStudentProfile`, and `uploadStudentAvatar` all dynamically evaluate and persist `isCompleted` across all 13 fields.
+   - `createApplication` strictly checks student profile completeness and rejects requests with HTTP 400 if incomplete.
+
+**Verification:**
+- Frontend TypeScript check (`npx tsc --noEmit`): passed with 0 errors.
+- Backend TypeScript check (`npm run lint`): passed with 0 errors.
 

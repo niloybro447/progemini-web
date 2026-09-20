@@ -109,6 +109,21 @@ export async function getUserById(id: string) {
       isActive: true,
       createdAt: true,
       studentProfile: true,
+      applications: {
+        select: {
+          id: true,
+          status: true,
+          courseId: true,
+          createdAt: true,
+          course: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
       enrollments: {
         include: {
           course: {

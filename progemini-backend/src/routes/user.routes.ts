@@ -13,6 +13,7 @@ router.put("/profile", authenticate, validate(updateProfileSchema), userControll
 // Admin-only user management routes
 router.get("/", authenticate, authorize("ADMIN"), userController.listUsers);
 router.post("/", authenticate, authorize("ADMIN"), validate(createUserSchema), userController.createUser);
+router.post("/create", authenticate, authorize("ADMIN"), validate(createUserSchema), userController.createUser);
 router.get("/:id", authenticate, userController.getUserById);
 router.patch("/:id", authenticate, validate(updateUserSchema), userController.updateUser);
 router.delete("/:id", authenticate, authorize("ADMIN"), userController.deleteUser);
