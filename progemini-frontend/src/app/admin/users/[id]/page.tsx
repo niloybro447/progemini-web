@@ -27,6 +27,10 @@ export default async function UserDetailPage({ params }: { params: { id: string 
     redirect('/admin/users');
   }
 
-  return <AdminUserDetailClient initialUser={user} />;
+  return (
+    <div className="p-6 md:p-8 w-full">
+      <AdminUserDetailClient initialUser={user} />
+    </div>
+  );
 }
 

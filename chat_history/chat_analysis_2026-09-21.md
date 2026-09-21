@@ -110,7 +110,65 @@ The user requested a digital ID card for every student profile that is dynamic a
 
 ---
 
-## 5. Artifacts & Documentation
+## 5. Admin Container Padding & Layout Spacing Fix
+
+### Issue
+- On `/admin/verification/id-card`, the page container lacked outer padding (`className="space-y-6"`), causing:
+  - Header and icons to collide directly with the red admin sidebar on the left (`0px` left margin).
+  - Header to touch the top window boundary (`0px` top padding).
+  - Search input box and "Search & Verify ID" button to cut off or push directly against the right viewport edge.
+
+### Resolution
+- **Digital ID Card Verification Page ([src/app/admin/verification/id-card/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/verification/id-card/page.tsx))**:
+  - Updated root wrapper from `<div className="space-y-6">` to `<div className="p-6 md:p-8 space-y-6 w-full">`, providing generous 24px/32px breathing room on all 4 sides in line with other modern admin pages.
+- **Certification Page ([src/app/admin/verification/certification/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/verification/certification/page.tsx))**:
+  - Updated root wrapper to `<div className="p-6 md:p-8 space-y-6 w-full">`.
+- **User Detail Page ([src/app/admin/users/[id]/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/users/%5Bid%5D/page.tsx))**:
+  - Wrapped `AdminUserDetailClient` inside `<div className="p-6 md:p-8 w-full">`.
+- **Enquiries Page ([src/app/admin/enquiries/page.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/enquiries/page.tsx))**:
+  - Standardized to `<div className="p-6 md:p-8 space-y-6 w-full">`.
+
+---
+
+---
+
+## 7. VPS Deployment Infrastructure & Dual Scripts
+
+### VPS Diagnostics Analysis
+- **Old Services Found**:
+  - `progemini_app_prod` on port `3010` (old Next.js container).
+  - `progemini-backend` on port `5001` (old unused backend).
+  - `postgres:16-alpine` on port `5434`.
+  - `minio` on ports `9000` & `9001`.
+  - Nginx currently proxying `progemini.academy` to `127.0.0.1:3010`.
+- **Target Architecture**:
+  - Express API Backend: Port `5000` (container: `progemini_backend`).
+  - Next.js Frontend: Port `3010` &rarr; container `3000` (container: `progemini_app_prod`).
+  - Internal Docker Network: Frontend communicates with Backend at `http://progemini-backend:5000/api` (`INTERNAL_API_URL`).
+  - Public Client Network: Browser calls `https://progemini.academy/api` (`NEXT_PUBLIC_API_BASE_URL`).
+  - Production Database: PostgreSQL on port `5434` with auto Prisma schema sync.
+
+### Files Created & Updated
+1. **[docker-entrypoint.sh](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/docker-entrypoint.sh)**:
+   - Automated Prisma schema sync (`npx prisma db push --skip-generate`) on backend container startup.
+2. **[progemini-backend/Dockerfile](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/Dockerfile)**:
+   - Configured `ENTRYPOINT ["./docker-entrypoint.sh"]`.
+3. **[docker-compose.yml](file:///d:/Sikku%20works/proGemini/web/progemini-web/docker-compose.yml)**:
+   - Added `INTERNAL_API_URL` and `NEXT_PUBLIC_API_BASE_URL` to frontend environment.
+4. **[nginx.conf](file:///d:/Sikku%20works/proGemini/web/progemini-web/nginx.conf)**:
+   - Added `/api/auth/` location block routing to `progemini_frontend` so NextAuth remains with Next.js.
+   - Routed `/api/` to `progemini_backend` (port 5000).
+5. **[deploy-first-time.sh](file:///d:/Sikku%20works/proGemini/web/progemini-web/deploy-first-time.sh)**:
+   - First-time deployment script: environment validation, port conflict resolution, initial build, Prisma database sync, and container launch.
+6. **[deploy.sh](file:///d:/Sikku%20works/proGemini/web/progemini-web/deploy.sh)**:
+   - Subsequent update deployment script: builds images first while old containers stay alive, syncs Prisma database, then stops and replaces old containers, followed by health verification.
+
+---
+
+## 8. Artifacts & Documentation
 - Implementation Plan: [implementation_plan.md](file:///C:/Users/USER/.gemini/antigravity-ide/brain/66912cf9-a246-4686-9b74-51deeeb7bfa5/implementation_plan.md)
 - Walkthrough: [walkthrough.md](file:///C:/Users/USER/.gemini/antigravity-ide/brain/66912cf9-a246-4686-9b74-51deeeb7bfa5/walkthrough.md)
+
+
+
 

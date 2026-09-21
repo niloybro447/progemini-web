@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "./auth";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
+const API_BASE = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api";
 
 export async function serverFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
   let cookieHeader = "";

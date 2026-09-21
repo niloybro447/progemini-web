@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function AdminEnquiriesPage() {
   return (
-    <div className="space-y-6 px-8 pt-8">
+    <div className="p-6 md:p-8 space-y-6 w-full">
       <div>
         <h1 className="text-3xl font-bold">Enquiries</h1>
         <p className="text-gray-600 mt-2">

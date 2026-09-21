@@ -63,6 +63,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - INTERNAL_API_URL=http://progemini-backend:5000/api
+      - NEXT_PUBLIC_API_BASE_URL=https://progemini.academy/api
       - NODE_OPTIONS=--max-old-space-size=1200
     restart: unless-stopped
     networks:
