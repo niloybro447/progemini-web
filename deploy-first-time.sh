@@ -49,7 +49,15 @@ if [ ! -f "progemini-frontend/.env.prod" ]; then
         log_success "Created progemini-frontend/.env.prod from .env.build."
     fi
 fi
-log_success "Environment files ready."
+
+# Ensure DATABASE_URL is not surrounded by quotes (Docker --env-file parses quotes as literals)
+if [ -f "progemini-backend/.env" ]; then
+    sed -i -E 's/^DATABASE_URL=["'\''](.*)["'\'']$/DATABASE_URL=\1/' progemini-backend/.env 2>/dev/null || true
+fi
+if [ -f "progemini-frontend/.env.prod" ]; then
+    sed -i -E 's/^DATABASE_URL=["'\''](.*)["'\'']$/DATABASE_URL=\1/' progemini-frontend/.env.prod 2>/dev/null || true
+fi
+log_success "Environment files validated and sanitized."
 
 # 3. Clean Up Legacy Containers (Port Conflicts)
 log_info "Step 3/6: Checking and resolving any old conflicting containers..."

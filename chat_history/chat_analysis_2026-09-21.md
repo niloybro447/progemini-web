@@ -163,11 +163,21 @@ The user requested a digital ID card for every student profile that is dynamic a
 6. **[deploy.sh](file:///d:/Sikku%20works/proGemini/web/progemini-web/deploy.sh)**:
    - Subsequent update deployment script: builds images first while old containers stay alive, syncs Prisma database, then stops and replaces old containers, followed by health verification.
 
+- Path Verification: Confirmed `/root/progemini/progemini-web` requires zero code or configuration changes. All paths in scripts and compose files are dynamic and relative.
+- Legacy Project Retention: Keep `/root/progemini/pg-next` files intact on VPS disk as a safe backup. Only the running Docker container (`progemini_app_prod`) needs to be stopped to free port 3010.
+- First-Time Deploy Hotfixes:
+  1. `DATABASE_URL` Quote Sanitization: Docker `--env-file` parses double quotes as literal string characters, causing Prisma error P1012 (`URL must start with postgresql://`). Added regex unquoting in `docker-entrypoint.sh`, `deploy-first-time.sh`, `deploy.sh`, and `src/config/index.ts`.
+  2. Module Alias Resolution (`Cannot find module '@/config'`): Standard `tsc` leaves TypeScript `@/*` alias imports intact in compiled `dist/*.js`. Integrated `tsc-alias` into `npm run build` (`tsc && tsc-alias`) to rewrite all aliases to native Node.js relative paths (`./config`, `./utils/logger`), ensuring zero runtime dependency overhead.
+  3. Entrypoint Command Passthrough: Updated `docker-entrypoint.sh` to check `$# -gt 0` and execute custom command arguments (e.g. `npx prisma db push --skip-generate`) directly without starting the HTTP server.
+
 ---
 
 ## 8. Artifacts & Documentation
 - Implementation Plan: [implementation_plan.md](file:///C:/Users/USER/.gemini/antigravity-ide/brain/66912cf9-a246-4686-9b74-51deeeb7bfa5/implementation_plan.md)
 - Walkthrough: [walkthrough.md](file:///C:/Users/USER/.gemini/antigravity-ide/brain/66912cf9-a246-4686-9b74-51deeeb7bfa5/walkthrough.md)
+
+
+
 
 
 

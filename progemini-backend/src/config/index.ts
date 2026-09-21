@@ -1,5 +1,8 @@
 function loadConfig() {
-  const databaseUrl = process.env.DATABASE_URL;
+  let databaseUrl = process.env.DATABASE_URL || "";
+  databaseUrl = databaseUrl.replace(/^["']/, "").replace(/["']$/, "").trim();
+  process.env.DATABASE_URL = databaseUrl;
+
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required but was not set. Check your .env file.");
   }

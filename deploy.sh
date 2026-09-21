@@ -41,10 +41,16 @@ if [[ "${1:-}" == "--first-time" || "${1:-}" == "-f" ]]; then
 fi
 
 # Step 1: Pre-flight Checks
-log_info "Step 1/5: Checking environment files..."
+log_info "Step 1/5: Checking and sanitizing environment files..."
 if [ ! -f "progemini-backend/.env" ]; then
     log_error "Missing progemini-backend/.env! Aborting."
     exit 1
+fi
+
+# Ensure DATABASE_URL is not surrounded by quotes (Docker --env-file compatibility)
+sed -i -E 's/^DATABASE_URL=["'\''](.*)["'\'']$/DATABASE_URL=\1/' progemini-backend/.env 2>/dev/null || true
+if [ -f "progemini-frontend/.env.prod" ]; then
+    sed -i -E 's/^DATABASE_URL=["'\''](.*)["'\'']$/DATABASE_URL=\1/' progemini-frontend/.env.prod 2>/dev/null || true
 fi
 
 # Step 2: Build New Images (Old containers stay LIVE and active!)
