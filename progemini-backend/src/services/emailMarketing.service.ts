@@ -29,6 +29,12 @@ export const SENDER_OPTIONS: SenderOption[] = [
         description: 'Direct student correspondence, student advisory, program queries',
     },
     {
+        email: 'mohsin@progemini.com',
+        name: 'Mohsin',
+        role: 'Executive & Student Relations',
+        description: 'Direct student correspondence, student advisory, program queries',
+    },
+    {
         email: 'noreply@progemini.academy',
         name: 'Progemini Notifications',
         role: 'Automated Broadcasts & Notifications',
