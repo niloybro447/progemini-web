@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -21,10 +21,10 @@ export default function CourseSidebar({ course }: CourseSidebarProps) {
     const fetchRelatedCourses = async () => {
       try {
         const data = await apiClient.get<any[]>(
-          `/api/courses?category=${course.category?.slug}&search=&status=PUBLISHED`
+          `/v1/courses?category=${course.category?.slug}&search=&status=PUBLISHED`
         );
         // Filter out the current course and get first 3
-        const filtered = data.filter((c: any) => c.id !== course.id).slice(0, 3);
+        const filtered = Array.isArray(data) ? data.filter((c: any) => c.id !== course.id).slice(0, 3) : [];
         setRelatedCourses(filtered);
       } catch (error) {
         console.error("Error fetching related courses:", error);

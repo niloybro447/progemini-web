@@ -7,6 +7,8 @@ import CourseContent from '@/components/courses/CourseContent';
 import CourseSidebar from '@/components/courses/CourseSidebar';
 import { notFound } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 interface CoursePageProps {
   params: {
     slug: string;
@@ -14,13 +16,27 @@ interface CoursePageProps {
 }
 
 async function getCourse(slug: string) {
-  const course = await serverFetch<any>(`/v1/courses/slug/${slug}`);
-  return course;
+  try {
+    const course = await serverFetch<any>(`/v1/courses/slug/${slug}`);
+    return course;
+  } catch (error: any) {
+    if (error?.message !== 'Course not found' && !error?.message?.includes('404')) {
+      console.error(`Error fetching course for slug "${slug}":`, error);
+    }
+    return null;
+  }
 }
 
-async function getRelatedCourses(categoryId: string, currentCourseId: string) {
-  const courses = await serverFetch<any[]>(`/v1/courses?categoryId=${categoryId}`);
-  return courses.filter((c: any) => c.id !== currentCourseId).slice(0, 4);
+async function getRelatedCourses(categoryId?: string, currentCourseId?: string) {
+  if (!categoryId) return [];
+  try {
+    const courses = await serverFetch<any[]>(`/v1/courses?categoryId=${categoryId}`);
+    if (!Array.isArray(courses)) return [];
+    return courses.filter((c: any) => c.id !== currentCourseId).slice(0, 4);
+  } catch (error) {
+    console.error('Error fetching related courses:', error);
+    return [];
+  }
 }
 
 export default async function CoursePage({ params }: CoursePageProps) {
@@ -53,10 +69,6 @@ export default async function CoursePage({ params }: CoursePageProps) {
   );
 }
 
-export async function generateStaticParams() {
-  return [];
-}
-
 export async function generateMetadata({ params }: CoursePageProps) {
   const course = await getCourse(params.slug);
 
@@ -78,3 +90,4 @@ export async function generateMetadata({ params }: CoursePageProps) {
     },
   };
 }
+

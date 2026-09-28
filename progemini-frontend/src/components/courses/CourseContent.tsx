@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { FaCheckCircle, FaChevronDown, FaChevronUp, FaPlayCircle, FaBriefcase, FaGraduationCap, FaClipboardCheck, FaTimes } from "react-icons/fa";
 import Link from "next/link";
@@ -101,10 +101,17 @@ function VideoModal({ videoUrl, onClose }: { videoUrl: string; onClose: () => vo
 }
 
 export default function CourseContent({ course, relatedCourses }: CourseContentProps) {
-  // Parse custom sections once
+  // Parse custom sections safely (support both array and JSON string)
   let customSections: { id: string; label: string; content: string }[] = [];
   if (course.customSections) {
-    try { customSections = JSON.parse(course.customSections); } catch {}
+    if (Array.isArray(course.customSections)) {
+      customSections = course.customSections;
+    } else if (typeof course.customSections === "string") {
+      try {
+        const parsed = JSON.parse(course.customSections);
+        if (Array.isArray(parsed)) customSections = parsed;
+      } catch {}
+    }
   }
 
   return (
@@ -127,7 +134,7 @@ export default function CourseContent({ course, relatedCourses }: CourseContentP
         </div>
       )}
 
-      {course.sections?.length > 0 && (
+      {Array.isArray(course.sections) && course.sections.length > 0 && (
         <div className="card p-6">
           <h2 className="heading-3 mb-4">Course Content</h2>
           <div className="space-y-3">
@@ -232,9 +239,9 @@ function CourseSection({ section, isFirst }: { section: any; isFirst?: boolean }
             {isOpen ? <FaChevronUp /> : <FaChevronDown />}
             <span className="font-semibold text-brand-secondary">{section.title}</span>
           </div>
-          <span className="text-sm text-gray-600">{section.lessons.length} modules</span>
+          <span className="text-sm text-gray-600">{(section.lessons || []).length} modules</span>
         </button>
-        {isOpen && (
+        {isOpen && Array.isArray(section.lessons) && (
           <div className="p-4 space-y-2">
             {section.lessons.map((lesson: any) => (
               <button
