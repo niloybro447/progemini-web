@@ -268,33 +268,38 @@ export const sendEmail = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  // Campaign creation / retrieval
-  let targetCampaignId = campaignId || draftId;
-  if (!targetCampaignId) {
-    const created = await prisma.emailCampaign.create({
-      data: {
-        name: campaignName,
-        type: campaignType,
-        fromEmail,
-        fromName,
-        subject,
-        htmlBody,
-        delaySeconds,
-        batchSize,
-        totalRecipients: recipients.length,
-        status: EmailCampaignStatus.SENDING,
-      },
-    });
-    targetCampaignId = created.id;
-  } else {
-    await prisma.emailCampaign.update({
-      where: { id: targetCampaignId },
-      data: {
-        status: EmailCampaignStatus.SENDING,
-        totalRecipients: recipients.length,
-      },
-    });
-  }
+  // Campaign creation / retrieval — upsert handles client-generated IDs safely
+  const targetCampaignId =
+    campaignId || draftId || `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  await prisma.emailCampaign.upsert({
+    where: { id: targetCampaignId },
+    update: {
+      name: campaignName,
+      type: campaignType as EmailCampaignType,
+      fromEmail,
+      fromName,
+      subject,
+      htmlBody,
+      delaySeconds: Number(delaySeconds),
+      batchSize: Number(batchSize),
+      totalRecipients: recipients.length,
+      status: EmailCampaignStatus.SENDING,
+    },
+    create: {
+      id: targetCampaignId,
+      name: campaignName,
+      type: campaignType as EmailCampaignType,
+      fromEmail,
+      fromName,
+      subject,
+      htmlBody,
+      delaySeconds: Number(delaySeconds),
+      batchSize: Number(batchSize),
+      totalRecipients: recipients.length,
+      status: EmailCampaignStatus.SENDING,
+    },
+  });
 
   // Background dispatch
   (async () => {
@@ -302,6 +307,19 @@ export const sendEmail = asyncHandler(async (req: Request, res: Response) => {
     let failedCount = 0;
 
     for (let i = 0; i < recipients.length; i += batchSize) {
+      // Check if admin cancelled or paused the campaign mid-send
+      const currentStatus = await prisma.emailCampaign.findUnique({
+        where: { id: targetCampaignId },
+        select: { status: true },
+      });
+      if (
+        currentStatus?.status === EmailCampaignStatus.CANCELLED ||
+        currentStatus?.status === EmailCampaignStatus.PAUSED
+      ) {
+        console.log(`Campaign ${targetCampaignId} stopped by admin (${currentStatus.status}).`);
+        break;
+      }
+
       const batch = recipients.slice(i, i + batchSize);
       const results = await Promise.all(
         batch.map((item: any) =>
