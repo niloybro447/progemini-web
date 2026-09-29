@@ -126,11 +126,6 @@ export async function dispatchSingleEmail({
                         clickedUrls: [],
                     },
                 });
-
-                await prisma.emailCampaign.update({
-                    where: { id: campaignId },
-                    data: { sentCount: { increment: 1 } },
-                });
             } catch (dbErr) {
                 console.error('Failed to log email sent in db:', dbErr);
             }
@@ -158,11 +153,6 @@ export async function dispatchSingleEmail({
                         openCount: 0,
                         clickedUrls: [],
                     },
-                });
-
-                await prisma.emailCampaign.update({
-                    where: { id: campaignId },
-                    data: { failedCount: { increment: 1 } },
                 });
             } catch (dbErr) {
                 console.error('Failed to log email failure in db:', dbErr);

@@ -306,7 +306,7 @@ export const sendEmail = asyncHandler(async (req: Request, res: Response) => {
     let sentCount = 0;
     let failedCount = 0;
 
-    for (let i = 0; i < recipients.length; i += batchSize) {
+    for (let i = 0; i < recipients.length; i++) {
       // Check if admin cancelled or paused the campaign mid-send
       const currentStatus = await prisma.emailCampaign.findUnique({
         where: { id: targetCampaignId },
@@ -320,44 +320,53 @@ export const sendEmail = asyncHandler(async (req: Request, res: Response) => {
         break;
       }
 
-      const batch = recipients.slice(i, i + batchSize);
-      const results = await Promise.all(
-        batch.map((item: any) =>
-          dispatchSingleEmail({
-            item,
-            fromEmail,
-            fromName,
-            subject,
-            htmlBody,
-            campaignId: targetCampaignId,
-            baseUrl,
-          })
-        )
-      );
-
-      results.forEach((r) => {
-        if (r.success) sentCount++;
-        else failedCount++;
+      const item = recipients[i];
+      const result = await dispatchSingleEmail({
+        item,
+        fromEmail,
+        fromName,
+        subject,
+        htmlBody,
+        campaignId: targetCampaignId,
+        baseUrl,
       });
+
+      if (result.success) {
+        sentCount++;
+      } else {
+        failedCount++;
+      }
 
       await prisma.emailCampaign.update({
         where: { id: targetCampaignId },
         data: { sentCount, failedCount },
       });
 
-      if (i + batchSize < recipients.length) {
-        await sleep(delaySeconds * 1000);
+      // Pause between each individual email if delay is specified
+      if (i < recipients.length - 1 && Number(delaySeconds) > 0) {
+        await sleep(Number(delaySeconds) * 1000);
       }
     }
 
-    await prisma.emailCampaign.update({
+    // Check if campaign was cancelled or paused mid-send before marking COMPLETED/FAILED
+    const finalStatus = await prisma.emailCampaign.findUnique({
       where: { id: targetCampaignId },
-      data: {
-        status: failedCount === recipients.length ? EmailCampaignStatus.FAILED : EmailCampaignStatus.COMPLETED,
-        sentCount,
-        failedCount,
-      },
+      select: { status: true },
     });
+
+    if (
+      finalStatus?.status !== EmailCampaignStatus.CANCELLED &&
+      finalStatus?.status !== EmailCampaignStatus.PAUSED
+    ) {
+      await prisma.emailCampaign.update({
+        where: { id: targetCampaignId },
+        data: {
+          status: failedCount === recipients.length ? EmailCampaignStatus.FAILED : EmailCampaignStatus.COMPLETED,
+          sentCount,
+          failedCount,
+        },
+      });
+    }
   })().catch(console.error);
 
   res.json({

@@ -78,8 +78,8 @@ export default function CampaignsListPage() {
     const [logSearchQuery, setLogSearchQuery] = useState('');
     const [logStatusFilter, setLogStatusFilter] = useState<'all' | 'opened' | 'clicked' | 'bounced' | 'delivered'>('all');
 
-    const loadCampaigns = async () => {
-        setIsLoading(true);
+    const loadCampaigns = async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             const data = await apiClient.get<{ success: boolean; campaigns: CampaignItem[] }>('/admin/email/campaigns');
             if (data?.success) {
@@ -88,13 +88,25 @@ export default function CampaignsListPage() {
         } catch (err) {
             console.error('Failed to load campaigns:', err);
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     };
 
     useEffect(() => {
         loadCampaigns();
     }, []);
+
+    // Live auto-polling whenever any campaign is in SENDING state
+    useEffect(() => {
+        const hasSending = campaigns.some((c) => c.status === 'SENDING');
+        if (!hasSending) return;
+
+        const interval = setInterval(() => {
+            loadCampaigns(true);
+        }, 2000);
+
+        return () => clearInterval(interval);
+    }, [campaigns]);
 
     // Open detail modal and fetch logs from Postgres
     const handleOpenDetailModal = async (camp: CampaignItem) => {
@@ -189,6 +201,14 @@ export default function CampaignsListPage() {
         document.body.removeChild(link);
     };
 
+    const statusCounts = {
+        ALL: campaigns.length,
+        COMPLETED: campaigns.filter((c) => c.status === 'COMPLETED').length,
+        SENDING: campaigns.filter((c) => c.status === 'SENDING').length,
+        DRAFT: campaigns.filter((c) => c.status === 'DRAFT').length,
+        FAILED: campaigns.filter((c) => c.status === 'FAILED').length,
+    };
+
     const filteredCampaigns = campaigns.filter((camp) => {
         const matchesSearch =
             (camp.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -198,6 +218,12 @@ export default function CampaignsListPage() {
         const matchesStatus = statusFilter === 'ALL' || camp.status === statusFilter;
 
         return matchesSearch && matchesStatus;
+    });
+
+    const sortedFilteredCampaigns = [...filteredCampaigns].sort((a, b) => {
+        if (a.status === 'SENDING' && b.status !== 'SENDING') return -1;
+        if (b.status === 'SENDING' && a.status !== 'SENDING') return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     // Filter modal recipient logs
@@ -239,6 +265,74 @@ export default function CampaignsListPage() {
                 </Link>
             </div>
 
+            {/* Ongoing Campaigns Banner if any campaign is currently SENDING */}
+            {statusCounts.SENDING > 0 && (
+                <div className="card p-5 border-2 border-blue-400 bg-blue-50/50 rounded-xl space-y-3 shadow-xs">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                            <span className="relative flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-500 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
+                            </span>
+                            <h2 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                                Ongoing Campaign Dispatch ({statusCounts.SENDING} Active)
+                            </h2>
+                        </div>
+                        <span className="text-[11px] text-blue-700 font-semibold flex items-center gap-1.5 animate-pulse">
+                            <RefreshCw className="w-3 h-3 animate-spin" />
+                            Live Updating
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {campaigns
+                            .filter((c) => c.status === 'SENDING')
+                            .map((camp) => {
+                                const percent =
+                                    camp.totalRecipients > 0
+                                        ? Math.min(100, Math.round((camp.sentCount / camp.totalRecipients) * 100))
+                                        : 0;
+                                return (
+                                    <div
+                                        key={camp.id}
+                                        onClick={() => handleOpenDetailModal(camp)}
+                                        className="p-4 bg-white border border-blue-200 rounded-lg shadow-xs hover:border-blue-400 hover:shadow-sm transition-all cursor-pointer flex flex-col justify-between gap-3"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <h3 className="font-bold text-brand-secondary text-xs truncate max-w-[240px]">
+                                                    {camp.name}
+                                                </h3>
+                                                <p className="text-[11px] text-gray-500 truncate max-w-[240px] mt-0.5">
+                                                    {camp.fromEmail} • {camp.subject}
+                                                </p>
+                                            </div>
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
+                                                {percent}% Sent
+                                            </span>
+                                        </div>
+
+                                        <div>
+                                            <div className="flex items-center justify-between text-[11px] text-gray-600 mb-1.5">
+                                                <span>Live Delivery:</span>
+                                                <span className="font-semibold text-brand-secondary">
+                                                    {camp.sentCount} of {camp.totalRecipients} emails
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                                <div
+                                                    className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                                                    style={{ width: `${percent}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                    </div>
+                </div>
+            )}
+
             {/* Filter and Search Bar - Clean Light Card */}
             <div className="card p-4 border border-gray-200 flex flex-col md:flex-row gap-4 items-center justify-between">
                 {/* Search input */}
@@ -255,17 +349,34 @@ export default function CampaignsListPage() {
 
                 {/* Status Tabs */}
                 <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-                    {['ALL', 'COMPLETED', 'SENDING', 'DRAFT', 'FAILED'].map((st) => (
+                    {(['ALL', 'COMPLETED', 'SENDING', 'DRAFT', 'FAILED'] as const).map((st) => (
                         <button
                             key={st}
                             onClick={() => setStatusFilter(st)}
-                            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all whitespace-nowrap cursor-pointer ${
+                            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
                                 statusFilter === st
                                     ? 'bg-brand-primary text-white shadow-sm'
+                                    : st === 'SENDING' && statusCounts.SENDING > 0
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-bold'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
-                            {st.toLowerCase()}
+                            {st === 'SENDING' && statusCounts.SENDING > 0 && (
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                                </span>
+                            )}
+                            <span>{st.toLowerCase()}</span>
+                            <span
+                                className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                                    statusFilter === st
+                                        ? 'bg-white/20 text-white font-bold'
+                                        : 'bg-gray-200 text-gray-700'
+                                }`}
+                            >
+                                {statusCounts[st]}
+                            </span>
                         </button>
                     ))}
                 </div>
@@ -278,7 +389,7 @@ export default function CampaignsListPage() {
                         <Loader2 className="w-5 h-5 animate-spin text-brand-primary" />
                         <span>Loading email campaigns from PostgreSQL...</span>
                     </div>
-                ) : filteredCampaigns.length === 0 ? (
+                ) : sortedFilteredCampaigns.length === 0 ? (
                     <div className="p-12 text-center text-gray-500 text-sm">
                         No campaigns found matching the filter.{' '}
                         <Link
@@ -305,15 +416,22 @@ export default function CampaignsListPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200 text-xs">
-                                {filteredCampaigns.map((camp) => (
+                                {sortedFilteredCampaigns.map((camp) => (
                                     <tr
                                         key={camp.id}
                                         onClick={() => handleOpenDetailModal(camp)}
-                                        className="hover:bg-gray-50/80 transition-colors group cursor-pointer"
+                                        className={`transition-colors group cursor-pointer ${
+                                            camp.status === 'SENDING'
+                                                ? 'bg-blue-50/40 hover:bg-blue-50/70 border-l-4 border-l-blue-500'
+                                                : 'hover:bg-gray-50/80'
+                                        }`}
                                     >
                                         <td className="py-4 px-4">
-                                            <div className="font-bold text-brand-secondary max-w-[240px] truncate text-sm group-hover:text-brand-primary transition-colors">
+                                            <div className="font-bold text-brand-secondary max-w-[240px] truncate text-sm group-hover:text-brand-primary transition-colors flex items-center gap-1.5">
                                                 {camp.name}
+                                                {camp.status === 'SENDING' && (
+                                                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping inline-block" />
+                                                )}
                                             </div>
                                             <div className="text-xs text-gray-500 max-w-[240px] truncate mt-0.5">
                                                 {camp.subject || '(No subject line)'}
@@ -331,12 +449,31 @@ export default function CampaignsListPage() {
                                         </td>
 
                                         <td className="py-4 px-4 text-gray-700">
-                                            <div className="font-medium text-xs">
-                                                {camp.sentCount} / {camp.totalRecipients}
+                                            <div className="font-medium text-xs flex items-center gap-1">
+                                                {camp.status === 'SENDING' && (
+                                                    <Loader2 className="w-3 h-3 animate-spin text-blue-600 shrink-0" />
+                                                )}
+                                                <span>
+                                                    {camp.sentCount} / {camp.totalRecipients}
+                                                </span>
+                                                {camp.status === 'SENDING' && (
+                                                    <span className="text-[10px] text-blue-600 font-bold ml-1">
+                                                        ({camp.totalRecipients > 0
+                                                            ? Math.round(
+                                                                  (camp.sentCount / camp.totalRecipients) * 100
+                                                              )
+                                                            : 0}
+                                                        %)
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="w-24 h-1.5 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
                                                 <div
-                                                    className="h-full bg-brand-primary rounded-full"
+                                                    className={`h-full rounded-full transition-all duration-300 ${
+                                                        camp.status === 'SENDING'
+                                                            ? 'bg-blue-600'
+                                                            : 'bg-brand-primary'
+                                                    }`}
                                                     style={{
                                                         width: `${
                                                             camp.totalRecipients > 0

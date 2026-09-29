@@ -20,6 +20,8 @@ import {
     Activity,
     CheckCircle,
     X,
+    Clock,
+    Eye,
 } from 'lucide-react';
 import {
     SENDER_OPTIONS,
@@ -108,6 +110,7 @@ function WizardContent() {
     const [isSendingTest, setIsSendingTest] = useState(false);
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [isLaunching, setIsLaunching] = useState(false);
+    const [isCampaignLaunched, setIsCampaignLaunched] = useState(false);
     const [launchError, setLaunchError] = useState<string | null>(null);
     const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
     const [liveProgress, setLiveProgress] = useState<{
@@ -136,13 +139,17 @@ function WizardContent() {
 
     // Live Polling of Active Campaign Progress
     useEffect(() => {
-        if (!activeCampaignId || !liveProgress || liveProgress.status !== 'SENDING') {
+        if (!activeCampaignId || !liveProgress || (liveProgress.status !== 'SENDING' && liveProgress.status !== 'DRAFT')) {
             return;
         }
 
-        const interval = setInterval(async () => {
+        let isMounted = true;
+        const pollProgress = async () => {
             try {
-                const data = await apiClient.get<{ success: boolean; campaign?: any; logs?: EmailLogEntry[] }>(`/admin/email/campaigns?id=${activeCampaignId}`);
+                const data = await apiClient.get<{ success: boolean; campaign?: any; logs?: EmailLogEntry[] }>(
+                    `/admin/email/campaigns?id=${activeCampaignId}`
+                );
+                if (!isMounted) return;
                 if (data?.success && data.campaign) {
                     const camp = data.campaign;
                     const logs: EmailLogEntry[] = data.logs || [];
@@ -172,9 +179,18 @@ function WizardContent() {
             } catch (pollErr) {
                 console.error('Progress poll error:', pollErr);
             }
-        }, 2000);
+        };
 
-        return () => clearInterval(interval);
+        // Quick initial check after 500ms
+        const initialTimer = setTimeout(pollProgress, 500);
+        // Responsive polling every 1200ms while active
+        const interval = setInterval(pollProgress, 1200);
+
+        return () => {
+            isMounted = false;
+            clearTimeout(initialTimer);
+            clearInterval(interval);
+        };
     }, [activeCampaignId, liveProgress?.status]);
 
     const loadDraft = async (id: string) => {
@@ -191,11 +207,12 @@ function WizardContent() {
                 setSubject(c.subject || '');
                 setHtmlBody(c.htmlBody || '');
 
-                if (c.status === 'SENDING') {
+                if (c.status === 'SENDING' || c.status === 'COMPLETED') {
                     setActiveCampaignId(c.id);
+                    setIsCampaignLaunched(true);
                     setLiveProgress({
                         campaignId: c.id,
-                        status: 'SENDING',
+                        status: c.status,
                         total: c.totalRecipients || 1,
                         sent: c.sentCount || 0,
                         failed: c.failedCount || 0,
@@ -206,9 +223,13 @@ function WizardContent() {
                         recentLogs: data.logs || [],
                         startedAt: Date.now(),
                     });
-                    setIsLaunching(true);
+                    setIsLaunching(c.status === 'SENDING');
                     setCurrentStep(6);
-                    setDraftFeedback('Active campaign monitoring loaded!');
+                    setDraftFeedback(
+                        c.status === 'SENDING'
+                            ? 'Active campaign monitoring loaded!'
+                            : 'Completed campaign loaded!'
+                    );
                 } else {
                     setCurrentStep(5);
                     setDraftFeedback('Draft loaded from database!');
@@ -486,6 +507,7 @@ function WizardContent() {
         if (!window.confirm(confirmMsg)) return;
 
         setIsLaunching(true);
+        setIsCampaignLaunched(true);
         setLaunchError(null);
 
         const tempCampId = draftId || `camp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -530,6 +552,7 @@ function WizardContent() {
             const msg = err instanceof Error ? err.message : 'Campaign launch failed';
             setLaunchError(msg);
             setIsLaunching(false);
+            setIsCampaignLaunched(false);
             setLiveProgress((prev) => (prev ? { ...prev, status: 'FAILED' } : null));
         }
     };
@@ -1421,16 +1444,43 @@ function WizardContent() {
                         <div className="p-6 bg-white border border-brand-primary/30 rounded-xl space-y-4 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 text-brand-primary flex items-center justify-center">
-                                        <Activity className="w-5 h-5 animate-spin" />
+                                    <div
+                                        className={`w-10 h-10 rounded-lg flex items-center justify-center border ${
+                                            liveProgress.status === 'COMPLETED'
+                                                ? 'bg-green-50 border-green-200 text-green-600'
+                                                : liveProgress.status === 'CANCELLED'
+                                                ? 'bg-gray-100 border-gray-300 text-gray-500'
+                                                : 'bg-red-50 border-red-200 text-brand-primary'
+                                        }`}
+                                    >
+                                        {liveProgress.status === 'COMPLETED' ? (
+                                            <CheckCircle className="w-5 h-5 text-green-600" />
+                                        ) : liveProgress.status === 'CANCELLED' ? (
+                                            <X className="w-5 h-5 text-gray-600" />
+                                        ) : (
+                                            <Activity className="w-5 h-5 animate-spin" />
+                                        )}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-brand-secondary text-sm">
-                                            Live Campaign Progress ({liveProgress.status})
-                                        </h3>
-                                        <p className="text-[11px] text-gray-500">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className="font-bold text-brand-secondary text-sm">
+                                                Live Campaign Progress
+                                            </h3>
+                                            <span
+                                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                                    liveProgress.status === 'COMPLETED'
+                                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                                        : liveProgress.status === 'SENDING'
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse'
+                                                        : 'bg-gray-100 text-gray-700 border-gray-200'
+                                                }`}
+                                            >
+                                                {liveProgress.status}
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-500 mt-0.5">
                                             {liveProgress.sent} sent • {liveProgress.failed} failed • of{' '}
-                                            {liveProgress.total} total
+                                            {liveProgress.total} total ({liveProgress.percent}%)
                                         </p>
                                     </div>
                                 </div>
@@ -1440,7 +1490,7 @@ function WizardContent() {
                                         type="button"
                                         onClick={handleCancelCampaign}
                                         disabled={isCancelling}
-                                        className="px-4 py-2 bg-red-50 hover:bg-red-100 text-brand-primary border border-red-200 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5"
+                                        className="px-4 py-2 bg-red-50 hover:bg-red-100 text-brand-primary border border-red-200 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer"
                                     >
                                         <X className="w-3.5 h-3.5" />
                                         <span>{isCancelling ? 'Stopping...' : 'Stop Campaign'}</span>
@@ -1451,33 +1501,105 @@ function WizardContent() {
                             {/* Progress bar */}
                             <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                                 <div
-                                    className="h-full bg-gradient-to-r from-brand-primary to-red-600 transition-all duration-500"
+                                    className={`h-full transition-all duration-300 ${
+                                        liveProgress.status === 'COMPLETED'
+                                            ? 'bg-green-500'
+                                            : 'bg-gradient-to-r from-brand-primary to-red-600'
+                                    }`}
                                     style={{ width: `${liveProgress.percent}%` }}
                                 />
                             </div>
 
-                            {/* Live activity feed */}
-                            {liveProgress.recentLogs && liveProgress.recentLogs.length > 0 && (
-                                <div className="pt-3 border-t border-gray-200 space-y-1.5 max-h-44 overflow-y-auto font-mono text-[11px]">
-                                    {liveProgress.recentLogs.map((log) => (
-                                        <div
-                                            key={log.id}
-                                            className="flex items-center justify-between text-gray-600 py-1 border-b border-gray-100"
-                                        >
-                                            <span className="text-gray-900">{log.recipient}</span>
-                                            <span
-                                                className={`capitalize font-semibold ${
-                                                    log.status === 'sent' || log.status === 'delivered'
-                                                        ? 'text-green-600'
-                                                        : 'text-brand-primary'
-                                                }`}
-                                            >
-                                                {log.status}
-                                            </span>
-                                        </div>
-                                    ))}
+                            {/* Real-time per-recipient live tracker */}
+                            <div className="pt-3 border-t border-gray-200">
+                                <div className="text-[11px] font-bold text-brand-secondary mb-2 flex items-center justify-between">
+                                    <span>Recipient Delivery Progress</span>
+                                    <span className="text-gray-500 font-normal">
+                                        {liveProgress.sent} of {liveProgress.total} delivered
+                                    </span>
                                 </div>
-                            )}
+
+                                <div className="space-y-1.5 max-h-52 overflow-y-auto font-mono text-[11px] pr-1">
+                                    {parsedRecipients.map((r, idx) => {
+                                        const emailStr = String(r.email || '').trim().toLowerCase();
+                                        const matchingLog = liveProgress.recentLogs?.find(
+                                            (l) => l.recipient.trim().toLowerCase() === emailStr
+                                        );
+
+                                        let statusBadge: React.ReactNode;
+                                        if (matchingLog) {
+                                            const isSent =
+                                                matchingLog.status === 'sent' || matchingLog.status === 'delivered';
+                                            statusBadge = (
+                                                <span
+                                                    className={`inline-flex items-center gap-1 font-semibold ${
+                                                        isSent ? 'text-green-600' : 'text-brand-primary'
+                                                    }`}
+                                                >
+                                                    {isSent ? (
+                                                        <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                                    ) : (
+                                                        <AlertCircle className="w-3.5 h-3.5 text-brand-primary" />
+                                                    )}
+                                                    <span className="capitalize">{matchingLog.status}</span>
+                                                </span>
+                                            );
+                                        } else if (liveProgress.status === 'SENDING') {
+                                            const totalDone = liveProgress.sent + liveProgress.failed;
+                                            if (idx === totalDone) {
+                                                statusBadge = (
+                                                    <span className="inline-flex items-center gap-1 font-semibold text-blue-600 animate-pulse">
+                                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                        <span>Sending...</span>
+                                                    </span>
+                                                );
+                                            } else if (idx > totalDone) {
+                                                statusBadge = (
+                                                    <span className="inline-flex items-center gap-1 text-gray-400">
+                                                        <Clock className="w-3.5 h-3.5" />
+                                                        <span>Queued</span>
+                                                    </span>
+                                                );
+                                            } else {
+                                                statusBadge = (
+                                                    <span className="inline-flex items-center gap-1 font-semibold text-green-600">
+                                                        <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                                        <span>Sent</span>
+                                                    </span>
+                                                );
+                                            }
+                                        } else if (liveProgress.status === 'COMPLETED') {
+                                            statusBadge = (
+                                                <span className="inline-flex items-center gap-1 font-semibold text-green-600">
+                                                    <CheckCircle className="w-3.5 h-3.5 text-green-600" />
+                                                    <span>Sent</span>
+                                                </span>
+                                            );
+                                        } else if (liveProgress.status === 'CANCELLED') {
+                                            statusBadge = (
+                                                <span className="inline-flex items-center gap-1 text-gray-500">
+                                                    <X className="w-3.5 h-3.5" />
+                                                    <span>Stopped</span>
+                                                </span>
+                                            );
+                                        } else {
+                                            statusBadge = <span className="text-gray-400">Pending</span>;
+                                        }
+
+                                        return (
+                                            <div
+                                                key={idx}
+                                                className="flex items-center justify-between text-gray-600 py-1.5 px-3 rounded bg-gray-50/70 border border-gray-100"
+                                            >
+                                                <span className="text-gray-900 font-medium truncate max-w-[280px]">
+                                                    {String(r.email || '')}
+                                                </span>
+                                                {statusBadge}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     )}
 
@@ -1489,33 +1611,76 @@ function WizardContent() {
                     )}
 
                     {/* Bottom Actions */}
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                        <button
-                            type="button"
-                            onClick={() => setCurrentStep(5)}
-                            className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold flex items-center gap-2"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            <span>Back to Email Editor</span>
-                        </button>
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-gray-200">
+                        {isCampaignLaunched ? (
+                            <Link
+                                href="/admin/email-marketing/campaigns"
+                                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span>Go to Campaigns List</span>
+                            </Link>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => setCurrentStep(5)}
+                                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold flex items-center gap-2 cursor-pointer"
+                            >
+                                <ArrowLeft className="w-4 h-4" />
+                                <span>Back to Email Editor</span>
+                            </button>
+                        )}
 
-                        <button
-                            type="button"
-                            onClick={handleLaunchCampaign}
-                            disabled={isLaunching}
-                            className="btn-primary text-xs py-3.5 px-8 shadow-md disabled:opacity-50 flex items-center gap-2 font-bold"
-                        >
-                            {isLaunching ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                                <Send className="w-4 h-4" />
+                        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                            {liveProgress?.status === 'COMPLETED' && (
+                                <Link
+                                    href="/admin/email-marketing/campaigns"
+                                    className="px-5 py-3.5 bg-brand-secondary hover:bg-black text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+                                >
+                                    <Eye className="w-4 h-4" />
+                                    <span>View in Campaigns List</span>
+                                </Link>
                             )}
-                            <span>
-                                {isLaunching
-                                    ? 'Dispatching Campaign...'
-                                    : `Launch Campaign to ${parsedRecipients.length} Recipients`}
-                            </span>
-                        </button>
+
+                            <button
+                                type="button"
+                                onClick={handleLaunchCampaign}
+                                disabled={
+                                    isCampaignLaunched ||
+                                    isLaunching ||
+                                    liveProgress?.status === 'SENDING' ||
+                                    liveProgress?.status === 'COMPLETED'
+                                }
+                                className={`text-xs py-3.5 px-8 rounded-lg shadow-md flex items-center justify-center gap-2 font-bold transition-all ${
+                                    liveProgress?.status === 'COMPLETED'
+                                        ? 'bg-green-600 text-white cursor-not-allowed opacity-90'
+                                        : isCampaignLaunched || isLaunching || liveProgress?.status === 'SENDING'
+                                        ? 'bg-brand-primary text-white cursor-not-allowed opacity-75'
+                                        : 'btn-primary cursor-pointer'
+                                }`}
+                            >
+                                {liveProgress?.status === 'COMPLETED' ? (
+                                    <>
+                                        <CheckCircle className="w-4 h-4 text-white" />
+                                        <span>Campaign Launched & Completed</span>
+                                    </>
+                                ) : isCampaignLaunched || isLaunching || liveProgress?.status === 'SENDING' ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                                        <span>
+                                            {liveProgress?.status === 'SENDING'
+                                                ? `Dispatching Campaign (${liveProgress.sent}/${liveProgress.total})...`
+                                                : 'Dispatching Campaign...'}
+                                        </span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-4 h-4" />
+                                        <span>Launch Campaign to {parsedRecipients.length} Recipients</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
