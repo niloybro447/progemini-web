@@ -27,9 +27,13 @@ import {
   FaSync,
   FaLayerGroup,
   FaIdCard,
+  FaCertificate,
 } from "react-icons/fa";
+import { useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/apiClient";
 import { getFileUrl } from "@/lib/utils";
+import AdminCertificateTab from "@/components/certificate/AdminCertificateTab";
+import AdminMarksheetTab from "@/components/marksheet/AdminMarksheetTab";
 
 interface Category {
   id: string;
@@ -61,6 +65,8 @@ interface StudentProfile {
   nationality?: string | null;
   passport?: string | null;
   isCompleted?: boolean;
+  isCertified?: boolean;
+  certifiedAt?: string | Date | null;
 }
 
 interface User {
@@ -91,6 +97,23 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
   const [user, setUser] = useState<User>(initialUser);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState<"profile" | "certification" | "marksheet">(
+    initialTab === "certification" || initialTab === "marksheet" ? initialTab : "profile"
+  );
+
+  const refreshUserData = useCallback(async () => {
+    try {
+      const updated = await apiClient.get<User>(`/v1/users/${user.id}?include=enrollments,_count`);
+      if (updated) {
+        setUser(updated);
+      }
+    } catch (err) {
+      console.error("Failed to refresh user:", err);
+    }
+  }, [user.id]);
 
   // Dynamic Course & Category options
   const [categories, setCategories] = useState<Category[]>([]);
@@ -350,6 +373,49 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
   );
   const hasApprovedApp = approvedApplications.length > 0;
   const isProfileComplete = Boolean(sp.isCompleted);
+  const isProfileIncomplete =
+    !isProfileComplete ||
+    !sp.passport ||
+    !sp.nationality ||
+    !sp.address ||
+    !sp.nextOfKinName ||
+    !sp.nextOfKinPhone ||
+    !user.phone;
+
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+
+  const handleSendProfileReminder = async () => {
+    if (!user.email) {
+      toast.error("User does not have an email address");
+      return;
+    }
+
+    try {
+      setIsSendingReminder(true);
+      toast.loading("Sending profile completion email via Resend...", {
+        id: "profile-reminder",
+      });
+      const res = await apiClient.post<any>(
+        `/v1/admin/students/${user.id}/send-profile-reminder`,
+        {
+          message:
+            "please complete your Profile . your profile at progemini academy is incomplete. complete your profile.",
+        }
+      );
+      toast.success(
+        res?.message || `Email sent to ${user.email} from info@progemini.academy!`,
+        { id: "profile-reminder" }
+      );
+    } catch (err: any) {
+      console.error("Failed to send profile reminder email:", err);
+      toast.error(err.message || "Failed to send profile reminder email", {
+        id: "profile-reminder",
+      });
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
   const hasProgram = Boolean(sp.program && sp.program.trim().length > 0);
   const hasIntake = Boolean(
     sp.startedSemester &&
@@ -385,13 +451,41 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
               <FaUser className="text-brand-primary" />
               {user.name}
             </h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              User ID: <span className="font-mono text-gray-700">{user.id}</span>
-            </p>
+            {user.role === "STUDENT" ? (
+              <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                <span className="font-medium text-gray-600">Student ID:</span>
+                {user.studentProfile?.studentId ? (
+                  <span className="font-mono font-bold text-brand-primary bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                    {user.studentProfile.studentId}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    Pending complete your profile
+                  </span>
+                )}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-0.5">
+                Role: <span className="font-semibold text-gray-700">{user.role}</span>
+              </p>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {user.role === "STUDENT" && activeTab === "profile" && isProfileIncomplete && (
+            <button
+              type="button"
+              onClick={handleSendProfileReminder}
+              disabled={isSendingReminder}
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition shadow-sm"
+              title="Send profile completion reminder email from info@progemini.academy"
+            >
+              <FaEnvelope className={isSendingReminder ? "animate-pulse" : ""} />
+              {isSendingReminder ? "Sending Email..." : "Send Profile Completion Email"}
+            </button>
+          )}
+
           {user.role === "STUDENT" && (
             <button
               onClick={() => {
@@ -407,8 +501,60 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
         </div>
       </div>
 
-      {/* Digital ID Card Clearance Status Banner for Students */}
+      {/* Student View Multi-Tab Navigation */}
       {user.role === "STUDENT" && (
+        <div className="flex items-center gap-2 border-b border-gray-200 pb-px overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("profile")}
+            className={`px-5 py-3 text-sm font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap ${
+              activeTab === "profile"
+                ? "border-brand-primary text-brand-primary bg-white shadow-sm"
+                : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <FaIdCard className="text-base" />
+            Profile & ID
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("certification")}
+            className={`px-5 py-3 text-sm font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap ${
+              activeTab === "certification"
+                ? "border-brand-primary text-brand-primary bg-white shadow-sm"
+                : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <FaCertificate className="text-base" />
+            Certification
+            {Boolean(sp.isCertified) && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 font-extrabold ml-1">
+                ✓ Certified
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("marksheet")}
+            className={`px-5 py-3 text-sm font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2.5 whitespace-nowrap ${
+              activeTab === "marksheet"
+                ? "border-brand-primary text-brand-primary bg-white shadow-sm"
+                : "border-transparent text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+            }`}
+          >
+            <FaGraduationCap className="text-base" />
+            Academic Marksheet
+          </button>
+        </div>
+      )}
+
+      {/* Tab 1: Profile & ID Content */}
+      {activeTab === "profile" && (
+        <div className="space-y-6">
+          {/* Digital ID Card Clearance Status Banner for Students */}
+          {user.role === "STUDENT" && (
         <div
           className={`p-4 sm:p-5 rounded-2xl border transition-all ${
             isIdCardCleared
@@ -451,6 +597,18 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
             </div>
 
             <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+              {isProfileIncomplete && (
+                <button
+                  type="button"
+                  onClick={handleSendProfileReminder}
+                  disabled={isSendingReminder}
+                  className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-sm transition flex items-center gap-1.5"
+                  title="Send email notification via Resend to student's verified email"
+                >
+                  <FaEnvelope className={isSendingReminder ? "animate-pulse" : ""} />
+                  {isSendingReminder ? "Sending..." : "Notify Student to Complete Profile"}
+                </button>
+              )}
               {!isIdCardCleared && (
                 <button
                   type="button"
@@ -768,11 +926,23 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
 
               {/* Section 2: Personal & Identity Details */}
               <div className="card p-6 bg-white shadow-sm border border-gray-200 rounded-xl">
-                <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100 flex-wrap gap-2">
                   <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                     <FaPassport className="text-brand-primary" />
                     Personal & Identity Details
                   </h3>
+                  {isProfileIncomplete && (
+                    <button
+                      type="button"
+                      onClick={handleSendProfileReminder}
+                      disabled={isSendingReminder}
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 shadow-2xs"
+                      title="Send email notification via Resend (info@progemini.academy)"
+                    >
+                      <FaEnvelope className={isSendingReminder ? "animate-pulse" : ""} />
+                      {isSendingReminder ? "Sending..." : "Notify Incomplete Profile"}
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs sm:text-sm">
@@ -985,6 +1155,18 @@ export default function AdminUserDetailClient({ initialUser }: AdminUserDetailCl
           </div>
         </div>
       </div>
+        </div>
+      )}
+
+      {/* Tab 2: Certification CRUD Tab */}
+      {activeTab === "certification" && (
+        <AdminCertificateTab user={user} onUserUpdated={refreshUserData} />
+      )}
+
+      {/* Tab 3: Academic Marksheet Tab */}
+      {activeTab === "marksheet" && (
+        <AdminMarksheetTab user={user} />
+      )}
 
       {/* Admin Edit Student Information Modal */}
       {isEditModalOpen && (

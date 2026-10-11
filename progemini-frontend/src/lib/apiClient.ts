@@ -51,6 +51,55 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
   return res.json();
 }
 
+async function requestBlob(endpoint: string, options: RequestOptions = {}): Promise<Blob> {
+  const { json, ...fetchOptions } = options;
+  const headers: Record<string, string> = {
+    ...(fetchOptions.headers as Record<string, string>),
+  };
+
+  try {
+    const session = await getSession();
+    const token = (session as any)?.accessToken;
+    if (token && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  } catch {}
+
+  if (json !== undefined) {
+    headers["Content-Type"] = "application/json";
+    fetchOptions.body = JSON.stringify(json);
+  }
+
+  fetchOptions.credentials = "include";
+  fetchOptions.headers = headers;
+
+  let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith("/api/")) {
+    cleanEndpoint = cleanEndpoint.replace(/^\/api/, "");
+  }
+
+  const res = await fetch(`${API_BASE}${cleanEndpoint}`, fetchOptions);
+
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: res.statusText }));
+    const message = error.error?.message || error.message || error.error || `API Error ${res.status}`;
+    throw new Error(message);
+  }
+
+  return await res.blob();
+}
+
+export function saveBlobAsFile(blob: Blob, filename: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
 export const apiClient = {
   get: <T>(endpoint: string, options?: RequestOptions) =>
     request<T>(endpoint, { ...options, method: "GET" }),
@@ -69,4 +118,11 @@ export const apiClient = {
 
   upload: <T>(endpoint: string, formData: FormData, options?: RequestOptions) =>
     request<T>(endpoint, { ...options, method: "POST", body: formData }),
+
+  downloadBlob: (endpoint: string, options?: RequestOptions) =>
+    requestBlob(endpoint, options),
+
+  postBlob: (endpoint: string, json?: unknown, options?: RequestOptions) =>
+    requestBlob(endpoint, { ...options, method: "POST", json }),
 };
+

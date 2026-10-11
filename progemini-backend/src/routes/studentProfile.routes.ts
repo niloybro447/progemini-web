@@ -31,6 +31,20 @@ router.patch(
   spc.adminUpdateProfile,
 );
 
+router.post(
+  "/admin/students/:userId/send-profile-reminder",
+  authenticate,
+  authorize("ADMIN"),
+  spc.sendProfileReminder,
+);
+
+router.post(
+  "/admin/users/:userId/send-profile-reminder",
+  authenticate,
+  authorize("ADMIN"),
+  spc.sendProfileReminder,
+);
+
 // Public Student Credential Verification endpoints (accessible to anyone scanning the QR code)
 router.get("/credentials/verify/:studentId", spc.verifyCredential);
 router.get("/credentials/verify", spc.verifyCredential);

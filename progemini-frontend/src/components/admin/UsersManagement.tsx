@@ -1,11 +1,42 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
-import { FaTimes, FaFileAlt, FaExternalLinkAlt, FaSpinner } from "react-icons/fa";
+import {
+  FaTimes,
+  FaFileAlt,
+  FaExternalLinkAlt,
+  FaSpinner,
+  FaSearch,
+  FaUserPlus,
+  FaGraduationCap,
+  FaCheckCircle,
+  FaClock,
+  FaUserSlash,
+  FaEye,
+  FaTrash,
+} from "react-icons/fa";
 import { apiClient } from "@/lib/apiClient";
 import ApplicationDetailView from "@/components/application/ApplicationDetailView";
+
+interface ApplicationItem {
+  id: string;
+  status: string;
+  createdAt: string;
+  course?: {
+    id: string;
+    title: string;
+  } | null;
+}
+
+interface StudentProfileItem {
+  id: string;
+  studentId: string | null;
+  program: string | null;
+  isCompleted?: boolean;
+  isCertified?: boolean;
+}
 
 interface User {
   id: string;
@@ -14,12 +45,48 @@ interface User {
   role: string;
   isActive: boolean;
   createdAt: string;
+  avatar?: string | null;
+  studentProfile?: StudentProfileItem | null;
+  applications?: ApplicationItem[];
+  _count?: { enrollments: number };
+}
+
+type TabFilter = "all" | "enrolled" | "pending" | "not_applied";
+
+/**
+ * Categorize students into the 3 requested segments:
+ * 1. Enrolled students: Approved application and profile got academic program assigned, or got proper Student ID
+ * 2. Pending students: Applied for application, but not confirmed/approved yet
+ * 3. Not Applied students: Signed up students without any application
+ */
+function getStudentCategory(user: User): "enrolled" | "pending" | "not_applied" {
+  const hasProperStudentId = Boolean(
+    user.studentProfile?.studentId && user.studentProfile.studentId.trim().length > 0
+  );
+  const hasApprovedApp = Boolean(
+    user.applications?.some((app) => app.status === "APPROVED")
+  );
+  const hasAssignedProgram = Boolean(
+    user.studentProfile?.program && user.studentProfile.program.trim().length > 0
+  );
+
+  if (hasProperStudentId || (hasApprovedApp && hasAssignedProgram) || hasApprovedApp) {
+    return "enrolled";
+  }
+
+  const hasApplications = Boolean(user.applications && user.applications.length > 0);
+  if (hasApplications) {
+    return "pending";
+  }
+
+  return "not_applied";
 }
 
 export default function UsersClientPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<TabFilter>("enrolled");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Modal states for Create Student
   const [showStudentModal, setShowStudentModal] = useState(false);
@@ -34,12 +101,12 @@ export default function UsersClientPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [filter]);
+  }, []);
 
   const fetchUsers = async () => {
     try {
-      const url = filter ? `/v1/users?role=${filter}` : "/v1/users";
-      const data = await apiClient.get<User[] | { users: User[] }>(url);
+      setLoading(true);
+      const data = await apiClient.get<User[] | { users: User[] }>("/v1/users");
 
       if (Array.isArray(data)) {
         setUsers(data);
@@ -134,129 +201,375 @@ export default function UsersClientPage() {
     setSelectedAppId(null);
   };
 
-  const roleColors: Record<string, string> = {
-    STUDENT: "bg-green-100 text-green-800",
-    ADMIN: "bg-purple-100 text-purple-800",
-  };
+  // Category counts
+  const counts = useMemo(() => {
+    let allStudents = 0;
+    let enrolled = 0;
+    let pending = 0;
+    let notApplied = 0;
+
+    users.forEach((u) => {
+      if (u.role === "STUDENT") {
+        allStudents++;
+        const cat = getStudentCategory(u);
+        if (cat === "enrolled") enrolled++;
+        else if (cat === "pending") pending++;
+        else if (cat === "not_applied") notApplied++;
+      }
+    });
+
+    return {
+      all: allStudents,
+      enrolled,
+      pending,
+      not_applied: notApplied,
+    };
+  }, [users]);
+
+  // Filtered users list
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      // If role is ADMIN, only show under "all" tab
+      if (user.role === "ADMIN") {
+        if (activeTab !== "all") return false;
+      } else {
+        const cat = getStudentCategory(user);
+        if (activeTab !== "all" && cat !== activeTab) {
+          return false;
+        }
+      }
+
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = user.name?.toLowerCase().includes(q);
+        const matchesEmail = user.email?.toLowerCase().includes(q);
+        const matchesStudentId = user.studentProfile?.studentId?.toLowerCase().includes(q);
+        const matchesProgram = user.studentProfile?.program?.toLowerCase().includes(q);
+        const matchesApp = user.applications?.some((a) =>
+          a.course?.title?.toLowerCase().includes(q)
+        );
+        return matchesName || matchesEmail || matchesStudentId || matchesProgram || matchesApp;
+      }
+
+      return true;
+    });
+  }, [users, activeTab, searchQuery]);
+
+  const tabs: Array<{
+    id: TabFilter;
+    label: string;
+    count: number;
+    icon: any;
+    activeClasses: string;
+    badgeActive: string;
+    badgeInactive: string;
+  }> = [
+    {
+      id: "enrolled",
+      label: "Enrolled Students",
+      count: counts.enrolled,
+      icon: FaCheckCircle,
+      activeClasses: "bg-emerald-600 text-white shadow-xs",
+      badgeActive: "bg-white/20 text-white",
+      badgeInactive: "bg-emerald-100 text-emerald-800",
+    },
+    {
+      id: "pending",
+      label: "Pending Students",
+      count: counts.pending,
+      icon: FaClock,
+      activeClasses: "bg-amber-600 text-white shadow-xs",
+      badgeActive: "bg-white/20 text-white",
+      badgeInactive: "bg-amber-100 text-amber-800",
+    },
+    {
+      id: "not_applied",
+      label: "Not Applied Students",
+      count: counts.not_applied,
+      icon: FaUserSlash,
+      activeClasses: "bg-slate-700 text-white shadow-xs",
+      badgeActive: "bg-white/20 text-white",
+      badgeInactive: "bg-slate-200 text-slate-700",
+    },
+    {
+      id: "all",
+      label: "All Students",
+      count: counts.all,
+      icon: FaGraduationCap,
+      activeClasses: "bg-gray-900 text-white shadow-xs",
+      badgeActive: "bg-white/20 text-white",
+      badgeInactive: "bg-gray-200 text-gray-700",
+    },
+  ];
 
   if (loading) {
-    return <div className="p-6 text-gray-500">Loading user management...</div>;
+    return (
+      <div className="py-24 flex flex-col items-center justify-center text-gray-500 gap-3">
+        <FaSpinner className="animate-spin text-4xl text-primary" />
+        <p className="text-sm font-medium">Loading user management...</p>
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold">User Management</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilter("")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "" ? "bg-primary text-white" : "bg-gray-100"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilter("ADMIN")}
-            className={`px-4 py-2 rounded-lg ${
-              filter === "ADMIN" ? "bg-primary text-white" : "bg-gray-100"
-            }`}
-          >
-            Admins
-          </button>
-          <button
-            onClick={() => setFilter("STUDENT")}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-              filter === "STUDENT" ? "bg-primary text-white" : "bg-gray-100"
-            }`}
-          >
-            Students
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowStudentModal(true);
-              }}
-              className="ml-2 px-2 py-1 bg-green-500 text-white rounded text-xs hover:bg-green-600"
-            >
-              + Create Student
-            </button>
-          </button>
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
+            User Management
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Track student enrollments, admission applications, and registered profiles.
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowStudentModal(true)}
+          className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary/90 transition-all shadow-xs hover:shadow-md cursor-pointer self-start sm:self-auto"
+        >
+          <FaUserPlus className="text-sm" />
+          <span>+ Create Student</span>
+        </button>
+      </div>
+
+      {/* Filter Tabs & Search Bar */}
+      <div className="bg-white rounded-2xl p-3 border border-gray-100 shadow-xs mb-6">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          {/* Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
+                    isActive
+                      ? tab.activeClasses
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                  }`}
+                >
+                  <Icon className={`text-xs ${isActive ? "text-white" : "text-gray-500"}`} />
+                  <span>{tab.label}</span>
+                  <span
+                    className={`ml-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                      isActive ? tab.badgeActive : tab.badgeInactive
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Instant Search Bar */}
+          <div className="relative w-full xl:w-72 shrink-0">
+            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+            <input
+              type="text"
+              placeholder="Search by name, email, ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-8 py-2 text-xs sm:text-sm bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 cursor-pointer"
+                title="Clear search"
+              >
+                <FaTimes className="text-xs" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-semibold">User</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold">Role</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold">Joined</th>
-              <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">
-                  <div>
-                    <p className="font-medium">{user.name}</p>
-                    <p className="text-sm text-gray-500">{user.email}</p>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      roleColors[user.role as keyof typeof roleColors]
-                    }`}
-                  >
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <button
-                    onClick={() => handleToggleStatus(user.id, user.isActive)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      user.isActive
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {user.isActive ? "Active" : "Inactive"}
-                  </button>
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-500">
-                  {new Date(user.createdAt).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 text-right space-x-3">
-                  <button
-                    onClick={() => handleOpenApplications(user)}
-                    className="text-blue-600 hover:text-blue-800 hover:underline text-sm font-medium"
-                    title="View submitted course applications and documents"
-                  >
-                    Application
-                  </button>
-                  <Link
-                    href={`/admin/users/${user.id}`}
-                    className="text-primary hover:underline text-sm font-medium"
-                  >
-                    View
-                  </Link>
-                  <button
-                    onClick={() => handleDelete(user.id)}
-                    className="text-red-600 hover:underline text-sm font-medium"
-                  >
-                    Delete
-                  </button>
-                </td>
+      {/* Users Table */}
+      <div className="bg-white rounded-2xl shadow-xs border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50/80 border-b border-gray-100 text-gray-600 uppercase text-[11px] tracking-wider font-semibold">
+              <tr>
+                <th className="px-5 py-3.5">Student / User</th>
+                <th className="px-5 py-3.5 whitespace-nowrap">Student ID</th>
+                <th className="px-5 py-3.5">Academic Program</th>
+                <th className="px-5 py-3.5 whitespace-nowrap">Admission Status</th>
+                <th className="px-5 py-3.5 whitespace-nowrap">Account</th>
+                <th className="px-5 py-3.5 whitespace-nowrap">Joined</th>
+                <th className="px-5 py-3.5 text-right whitespace-nowrap">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-100 text-sm">
+              {filteredUsers.map((user) => {
+                const category = getStudentCategory(user);
+                const studentId = user.studentProfile?.studentId?.trim();
+                const assignedProgram =
+                  user.studentProfile?.program?.trim() ||
+                  user.applications?.find((a) => a.status === "APPROVED")?.course?.title ||
+                  (user.applications && user.applications[0]?.course?.title);
 
-        {users.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No users found</p>
+                return (
+                  <tr key={user.id} className="hover:bg-gray-50/70 transition-colors">
+                    {/* Student Info */}
+                    <td className="px-5 py-4 min-w-[200px]">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-gray-700 flex items-center justify-center font-bold text-sm shrink-0 border border-gray-200">
+                          {user.name ? user.name.charAt(0).toUpperCase() : "U"}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-gray-900 truncate">{user.name}</p>
+                            {user.role === "ADMIN" && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 uppercase">
+                                ADMIN
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Student ID */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      {studentId ? (
+                        <span className="inline-flex items-center font-mono text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-md tracking-wider whitespace-nowrap">
+                          {studentId}
+                        </span>
+                      ) : category === "enrolled" ? (
+                        <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium whitespace-nowrap">
+                          Pending ID
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 font-mono">—</span>
+                      )}
+                    </td>
+
+                    {/* Academic Program */}
+                    <td className="px-5 py-4 max-w-[220px]">
+                      {assignedProgram ? (
+                        <span
+                          className="font-medium text-gray-800 truncate block"
+                          title={assignedProgram}
+                        >
+                          {assignedProgram}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">No program assigned</span>
+                      )}
+                    </td>
+
+                    {/* Admission Status Badge */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      {user.role === "ADMIN" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                          Staff
+                        </span>
+                      ) : category === "enrolled" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          Enrolled
+                        </span>
+                      ) : category === "pending" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          Pending Review
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                          Not Applied
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Account Status Toggle */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      <button
+                        onClick={() => handleToggleStatus(user.id, user.isActive)}
+                        className={`px-2.5 py-0.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                          user.isActive
+                            ? "bg-green-100 text-green-800 hover:bg-green-200"
+                            : "bg-red-100 text-red-800 hover:bg-red-200"
+                        }`}
+                        title="Click to toggle user active status"
+                      >
+                        {user.isActive ? "Active" : "Inactive"}
+                      </button>
+                    </td>
+
+                    {/* Joined Date */}
+                    <td className="px-5 py-4 text-xs text-gray-500 whitespace-nowrap">
+                      {new Date(user.createdAt).toLocaleDateString(undefined, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-5 py-4 text-right whitespace-nowrap space-x-1.5">
+                      <button
+                        onClick={() => handleOpenApplications(user)}
+                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-semibold hover:underline bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                        title="View submitted course applications and documents"
+                      >
+                        <FaFileAlt className="text-[10px]" />
+                        <span>
+                          App
+                          {user.applications && user.applications.length > 0
+                            ? ` (${user.applications.length})`
+                            : ""}
+                        </span>
+                      </button>
+
+                      <Link
+                        href={`/admin/users/${user.id}`}
+                        className="inline-flex items-center gap-1 text-primary hover:text-primary/80 text-xs font-semibold hover:underline bg-primary/5 hover:bg-primary/10 px-2 py-1 rounded-md transition-colors"
+                        title="View full user details, verification & certificates"
+                      >
+                        <FaEye className="text-[10px]" />
+                        <span>View</span>
+                      </Link>
+
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-xs font-semibold hover:underline bg-red-50 hover:bg-red-100 px-2 py-1 rounded-md transition-colors cursor-pointer"
+                        title="Delete user"
+                      >
+                        <FaTrash className="text-[10px]" />
+                        <span>Delete</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {filteredUsers.length === 0 && (
+          <div className="text-center py-16 px-4">
+            <div className="w-14 h-14 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mx-auto mb-3 text-xl">
+              <FaGraduationCap />
+            </div>
+            <h3 className="text-base font-bold text-gray-800 mb-1">No Students Found</h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              {searchQuery
+                ? `No students matching "${searchQuery}" in this view.`
+                : activeTab === "enrolled"
+                ? "No enrolled students found with approved applications or assigned student IDs."
+                : activeTab === "pending"
+                ? "No students currently awaiting application confirmation."
+                : activeTab === "not_applied"
+                ? "No registered students without an application found."
+                : "No users found in the system."}
+            </p>
           </div>
         )}
       </div>

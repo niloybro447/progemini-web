@@ -93,6 +93,8 @@ model User {
   markedAttendances Attendance[] @relation("MarkedAttendance")
   filesUploaded File[] @relation("FileUploader")
   studentProfile StudentProfile?
+  certificates   Certificate[]
+  marksheets     Marksheet[]
 
   @@map("users")
 }
@@ -771,12 +773,81 @@ model StudentProfile {
   nationality      String?
   passport         String?
 
-  // Profile Completion Status
+  // Profile Completion & Certification Status
   isCompleted      Boolean   @default(false) @map("is_completed")
+  isCertified      Boolean   @default(false) @map("is_certified")
+  certifiedAt      DateTime? @map("certified_at")
 
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   @@map("student_profiles")
 }
+
+enum CertificateStatus {
+  DRAFT
+  PUBLISHED
+  REVOKED
+}
+
+model Certificate {
+  id              String            @id @default(uuid())
+  certificateId   String            @unique @map("certificate_id")
+  userId          String            @map("user_id")
+  studentId       String?           @map("student_id")
+  studentName     String            @map("student_name")
+  courseTitle     String            @map("course_title")
+  grade           String?           @map("grade")
+  issueDate       DateTime          @map("issue_date")
+  learningHours   String?           @default("As per programme") @map("learning_hours")
+  status          CertificateStatus @default(DRAFT)
+  encryptedToken  String?           @unique @map("encrypted_token")
+  verificationUrl String?           @map("verification_url")
+  publishedAt     DateTime?         @map("published_at")
+  publishedBy     String?           @map("published_by")
+  metadata        Json?
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([studentId])
+  @@index([status])
+  @@map("certificates")
+}
+
+model Marksheet {
+  id                String       @id @default(uuid())
+  userId            String       @map("user_id")
+  studentId         String?      @map("student_id")
+  courseTitle       String       @map("course_title")
+  mainFieldOfStudy  String?      @map("main_field_of_study")
+  level             String?      @map("level")
+  language          String?      @default("English") @map("language")
+  modeOfStudy       String?      @default("Online / Campus") @map("mode_of_study")
+  programmeLength   String?      @default("3 Years") @map("programme_length")
+  creditRequirement String?      @default("120 UK Credits / 60 ECTS Credits") @map("credit_requirement")
+  overallAverage    String?      @map("overall_average")
+  classification    String?      @map("classification")
+  totalUkCredits    Int?         @default(120) @map("total_uk_credits")
+  totalEctsCredits  Int?         @default(60) @map("total_ects_credits")
+  semester          String?      @map("semester")
+  academicYear      String?      @map("academic_year")
+  issueDate         DateTime?    @map("issue_date")
+  gpa               String?      @map("gpa")
+  totalCredits      Int?         @map("total_credits")
+  status            String       @default("DRAFT")
+  modules           Json         @default("[]")
+  remarks           String?
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([studentId])
+  @@map("marksheets")
+}
+
 

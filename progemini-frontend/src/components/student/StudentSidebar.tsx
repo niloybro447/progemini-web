@@ -1,19 +1,52 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { FaTachometerAlt, FaBook, FaShoppingBag, FaCog, FaSignOutAlt, FaComments, FaUser, FaFileAlt, FaCalendarCheck, FaTimes, FaClipboardList } from 'react-icons/fa';
+import { usePathname, useSearchParams } from 'next/navigation';
+import {
+  FaTimes,
+  FaFileAlt,
+  FaUser,
+  FaSignOutAlt,
+  FaAward,
+  FaCertificate,
+  FaClipboardList,
+  FaLaptopCode,
+} from 'react-icons/fa';
 import { signOut, useSession } from 'next-auth/react';
-
-const menuItems = [
-  { icon: FaFileAlt, label: 'Applications', href: '/student/applications' },
-  { icon: FaUser, label: 'My Profile', href: '/student/profile' },
-];
+import { apiClient } from '@/lib/apiClient';
 
 export default function StudentSidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
+
+  const [isCertified, setIsCertified] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function checkCertificationStatus() {
+      if (!session?.user?.id) return;
+      try {
+        const queryUserId = searchParams.get('userId');
+        const effectiveId =
+          session.user.role === 'ADMIN' && queryUserId
+            ? queryUserId
+            : session.user.id;
+        const res = await apiClient.get<any>(`/v1/certificates/user/${effectiveId}`);
+        const certs = res?.data || (Array.isArray(res) ? res : []);
+        const published = certs.some((c: any) => c.status === 'PUBLISHED');
+        if (isMounted) setIsCertified(published);
+      } catch (err) {
+        // silent fallback
+      }
+    }
+    checkCertificationStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, [session?.user?.id, searchParams]);
 
   const handleNavClick = () => {
     // Close sidebar on mobile/tablet when a link is clicked (below 1024px)
@@ -22,6 +55,15 @@ export default function StudentSidebar() {
       sidebarEl?.classList.add('hidden');
     }
   };
+
+  const isApplicationsActive = pathname.startsWith('/student/applications');
+  const isRecordsActive = pathname.startsWith('/student/records');
+  const isProfileActive = pathname === '/student/profile';
+  const isVleActive = pathname.startsWith('/student/vle');
+
+  const activeTab = searchParams.get('tab');
+  const isCertSubActive = isRecordsActive && (activeTab === 'certificate' || (!activeTab && pathname.includes('certificate')));
+  const isMarksheetSubActive = isRecordsActive && (activeTab === 'marksheet' || pathname.includes('marksheet'));
 
   return (
     <div className="w-full bg-brand-secondary text-white flex flex-col h-full">
@@ -48,24 +90,95 @@ export default function StudentSidebar() {
       </div>
 
       {/* Menu Items */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {menuItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={handleNavClick}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                  ? 'bg-brand-primary text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+        {/* 1. Applications */}
+        <Link
+          href="/student/applications"
+          onClick={handleNavClick}
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+            isApplicationsActive
+              ? 'bg-brand-primary text-white font-semibold'
+              : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+          }`}
+        >
+          <FaFileAlt className="text-xl flex-shrink-0" />
+          <span className="text-sm">Applications</span>
+        </Link>
+
+        {/* 2. Records (Under Applications) */}
+        <div className="space-y-1">
+          <Link
+            href="/student/records"
+            onClick={handleNavClick}
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+              isRecordsActive && !isCertSubActive && !isMarksheetSubActive
+                ? 'bg-brand-primary text-white font-semibold'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <FaAward className="text-xl flex-shrink-0" />
+            <span className="text-sm">Records</span>
+          </Link>
+
+          {/* Sub-options: Only visible if student certificate is published */}
+          {isCertified && (
+            <div className="pl-6 space-y-1">
+              <Link
+                href="/student/records?tab=certificate"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                  isCertSubActive
+                    ? 'bg-brand-primary text-white font-bold'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
                 }`}
-            >
-              <item.icon className="text-xl flex-shrink-0" />
-              <span className="text-sm">{item.label}</span>
-            </Link>
-          );
-        })}
+              >
+                <FaCertificate className="text-sm flex-shrink-0 text-amber-400" />
+                <span>Certificate</span>
+              </Link>
+
+              <Link
+                href="/student/records?tab=marksheet"
+                onClick={handleNavClick}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                  isMarksheetSubActive
+                    ? 'bg-brand-primary text-white font-bold'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                <FaClipboardList className="text-sm flex-shrink-0 text-amber-200" />
+                <span>Academic Marksheet</span>
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* 3. My Profile */}
+        <Link
+          href="/student/profile"
+          onClick={handleNavClick}
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+            isProfileActive
+              ? 'bg-brand-primary text-white font-semibold'
+              : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+          }`}
+        >
+          <FaUser className="text-xl flex-shrink-0" />
+          <span className="text-sm">My Profile</span>
+        </Link>
+
+        {/* 4. VLE (Under Profile) */}
+        <Link
+          href="/student/vle"
+          onClick={handleNavClick}
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+            isVleActive
+              ? 'bg-brand-primary text-white font-semibold'
+              : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+          }`}
+        >
+          <FaLaptopCode className="text-xl flex-shrink-0" />
+          <span className="text-sm">VLE</span>
+        </Link>
       </nav>
 
       {/* Bottom Actions */}

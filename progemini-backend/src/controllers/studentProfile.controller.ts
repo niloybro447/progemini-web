@@ -64,3 +64,43 @@ export const verifyCredential = asyncHandler(async (req: Request, res: Response)
   });
 });
 
+export const sendProfileReminder = asyncHandler(async (req: Request, res: Response) => {
+  const { prisma } = await import("@/config/prisma");
+  const targetUserId = req.params.userId || req.params.id;
+  const user = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    include: { studentProfile: true },
+  });
+
+  if (!user) {
+    res.status(StatusCodes.NOT_FOUND).json({
+      success: false,
+      message: "Student user not found",
+    });
+    return;
+  }
+
+  if (!user.email) {
+    res.status(StatusCodes.BAD_REQUEST).json({
+      success: false,
+      message: "User does not have a valid email address",
+    });
+    return;
+  }
+
+  const { sendProfileReminderEmail } = await import("@/utils/email");
+  const customMessage = req.body?.message as string | undefined;
+  const result = await sendProfileReminderEmail(
+    user.email,
+    user.name || "Student",
+    customMessage
+  );
+
+  res.status(StatusCodes.OK).json({
+    success: true,
+    message: `Profile completion reminder email sent successfully to ${user.email}`,
+    emailId: result.id,
+  });
+});
+
+

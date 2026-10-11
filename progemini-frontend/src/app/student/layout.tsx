@@ -16,7 +16,7 @@ export default async function StudentLayout({
     redirect('/login');
   }
 
-  if (user.role !== 'STUDENT') {
+  if (user.role !== 'STUDENT' && user.role !== 'ADMIN') {
     redirect(getDashboardPath(user.role));
   }
 

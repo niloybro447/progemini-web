@@ -86,6 +86,29 @@ export async function listUsers(role?: string) {
       isActive: true,
       createdAt: true,
       avatar: true,
+      studentProfile: {
+        select: {
+          id: true,
+          studentId: true,
+          program: true,
+          isCompleted: true,
+          isCertified: true,
+        },
+      },
+      applications: {
+        select: {
+          id: true,
+          status: true,
+          createdAt: true,
+          course: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
       _count: { select: { enrollments: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -119,8 +142,24 @@ export async function getUserById(id: string) {
             select: {
               id: true,
               title: true,
+              category: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      certificates: {
+        select: {
+          id: true,
+          certificateId: true,
+          issueDate: true,
+          status: true,
+          grade: true,
         },
         orderBy: { createdAt: "desc" },
       },

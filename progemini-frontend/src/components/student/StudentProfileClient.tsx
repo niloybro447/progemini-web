@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import Image from "next/image";
@@ -24,7 +24,6 @@ import {
   FaExclamationTriangle,
   FaUserFriends,
   FaQrcode,
-  FaClock,
 } from "react-icons/fa";
 import { apiClient } from "@/lib/apiClient";
 import { getFileUrl } from "@/lib/utils";
@@ -48,6 +47,8 @@ interface StudentProfile {
   nationality?: string | null;
   passport?: string | null;
   isCompleted?: boolean;
+  isCertified?: boolean;
+  certifiedAt?: string | Date | null;
 }
 
 interface User {
@@ -102,6 +103,8 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
     gender: sp?.gender || "",
     bio: user?.bio || "",
   });
+
+
 
   const formatDate = (val: string | Date | null | undefined) => {
     if (!val) return null;
@@ -370,6 +373,8 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
               Upload ID Standard Photo
             </button>
           </div>
+
+
         </div>
 
         {/* Right Column: Institutional & Identity Details Sections (8 cols) */}
@@ -830,6 +835,8 @@ export default function StudentProfileClient({ user: initialUser }: StudentProfi
           </div>
         </div>
       )}
+
+
     </div>
   );
 }

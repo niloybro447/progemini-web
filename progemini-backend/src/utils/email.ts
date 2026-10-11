@@ -179,3 +179,89 @@ export async function sendApplicationApprovedEmail(
     logger.error({ err, email, courseTitle }, "Failed to send application approval email");
   }
 }
+
+/**
+ * Send Profile Completion Reminder Email via Resend from info@progemini.academy
+ */
+export async function sendProfileReminderEmail(
+  email: string,
+  name: string,
+  customMessage?: string
+): Promise<{ success: boolean; id?: string }> {
+  if (!config.resendApiKey) {
+    logger.info({ email }, "DEV MODE — Profile reminder email not sent (no RESEND_API_KEY)");
+    return { success: true };
+  }
+
+  const { Resend } = await import("resend");
+  const resend = new Resend(config.resendApiKey);
+
+  const studentProfileUrl = `${APP_URL.replace(/\/+$/, "")}/student/profile`;
+  const messageBody =
+    customMessage?.trim() ||
+    "please complete your Profile . your profile at progemini academy is incomplete. complete your profile.";
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background-color: #ffffff; color: #1f2937; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+      <div style="background-color: #7a0019; padding: 22px; text-align: center; border-radius: 8px 8px 0 0; margin: -30px -30px 24px -30px;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;">
+          PROGEMINI ACADEMY
+        </h1>
+        <p style="color: #f7e599; margin: 4px 0 0 0; font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase;">
+          EDUCATE &middot; EMPOWER &middot; EXCEL
+        </p>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h2 style="color: #7a0019; font-size: 18px; font-weight: 700; margin-top: 0; margin-bottom: 14px;">
+          Action Required: Incomplete Student Profile
+        </h2>
+        <p style="font-size: 15px; line-height: 1.5; margin: 0 0 12px 0;">Hello ${name},</p>
+      </div>
+
+      <!-- Core notification message -->
+      <div style="margin: 20px 0; padding: 16px 20px; background-color: #fef2f2; border-left: 4px solid #7a0019; border-radius: 6px;">
+        <p style="margin: 0; color: #991b1b; font-size: 15px; font-weight: 600; line-height: 1.5;">
+          ${messageBody}
+        </p>
+      </div>
+
+      <div style="margin-bottom: 25px;">
+        <p style="font-size: 14px; line-height: 1.6; color: #4b5563; margin: 0;">
+          An up-to-date student profile is required for your official institutional records, issuance of your digital Student ID Card, academic mark sheets, and degree credentials. Please log in to complete your personal information, address, and next of kin contact details.
+        </p>
+      </div>
+
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="${studentProfileUrl}" style="background-color: #7a0019; color: white; padding: 13px 32px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; font-size: 14px; box-shadow: 0 2px 4px rgba(122,0,25,0.25);">
+          Complete Your Profile Now &rarr;
+        </a>
+      </div>
+
+      <p style="font-size: 12.5px; color: #6b7280; line-height: 1.4; margin-top: 25px; border-top: 1px solid #f3f4f6; padding-top: 16px;">
+        If the button above does not work, visit your profile directly using this link:<br />
+        <a href="${studentProfileUrl}" style="color: #7a0019; text-decoration: underline; word-break: break-all;">${studentProfileUrl}</a>
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 25px 0 15px 0;" />
+      <p style="font-size: 11.5px; color: #9ca3af; text-align: center; margin: 0;">
+        Official Notification &middot; Progemini Academy &middot; Sent from info@progemini.academy
+      </p>
+    </div>
+  `;
+
+  try {
+    const res = await resend.emails.send({
+      from: "Progemini Academy <info@progemini.academy>",
+      to: email,
+      subject: "Action Required: Please complete your Progemini Academy Profile",
+      html,
+    });
+    logger.info({ email, id: res.data?.id }, "Profile reminder email sent successfully");
+    return { success: true, id: res.data?.id };
+  } catch (err) {
+    logger.error({ err, email }, "Failed to send profile reminder email via Resend");
+    throw err;
+  }
+}
+

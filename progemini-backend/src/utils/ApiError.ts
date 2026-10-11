@@ -47,3 +47,6 @@ export class AppError extends Error {
     return new AppError(StatusCodes.INTERNAL_SERVER_ERROR, message, details, false);
   }
 }
+
+export const ApiError = AppError;
+export type ApiError = AppError;

@@ -26,10 +26,15 @@ FROM node:20-slim AS runner
 
 WORKDIR /app
 
-RUN apt-get update -y && apt-get install -y openssl ca-certificates curl && rm -rf /var/lib/apt/lists/*
+# Install runtime dependencies, Chromium for PDF generation, and standard vector fonts
+RUN apt-get update -y && \
+    apt-get install -y openssl ca-certificates curl chromium fonts-liberation fonts-dejavu-core && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV PORT=5000
+ENV CHROME_BIN=/usr/bin/chromium
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Copy package definitions
 COPY package*.json ./
@@ -44,6 +49,9 @@ COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/clie
 
 # Copy compiled JavaScript output
 COPY --from=builder /app/dist ./dist
+
+# Copy static assets (signatures, badges, logos for PDF rendering)
+COPY assets ./assets
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh ./
