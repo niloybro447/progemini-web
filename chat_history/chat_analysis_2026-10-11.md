@@ -1137,4 +1137,30 @@ The user downloaded the generated Marksheet A4 PDF and noticed:
    - Log into `/admin/verification/certification` and test PDF generation.
    - Verify student records under `/student/records`.
 
+---
+
+## 27. Marksheet Top Crest / Logo Scaling & Styling Alignment
+
+### 1. Requirements & Problem Statement
+- **User Request:**
+  - *"the marksheet is being rendered but the top logo looks so small. make it larger like certificate document .. change those from backend"*
+- **Root Cause Analysis:**
+  - `logo.png` had ~30% empty transparent padding around its edges (`contentW: 706` out of `1024`), causing an effective rendering size under 48px when constrained to `68px x 68px`.
+  - In comparison, the Certificate document utilized `certitifacte/fab-icon.gif` with zero excess padding at `86px x 86px`, appearing much larger and prominent.
+
+### 2. Implementation Details
+- **Backend Generator ([pdf.service.ts](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/src/services/pdf.service.ts)):**
+  - Updated `generateMarksheetHtml` asset loader to prioritize `certitifacte/fab-icon.gif` (the exact institutional crest used by the certificate) with graceful fallback to `logo.png`.
+  - Increased `.header-crest` dimensions from `68px x 68px` to `90px x 90px`.
+  - Refined typography in `.header-inst-title` to use `'Cinzel'` font at `28px` with `800` weight, perfectly mirroring the grandeur and scale of the official Degree Certificate.
+- **Frontend Component ([ProgeminiMarkSheet.tsx](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/marksheet/ProgeminiMarkSheet.tsx)):**
+  - Updated image source from `/logo.png` to `/certitifacte/fab-icon.gif`.
+  - Increased crest container from `w-[10cqw] max-w-[80px]` to `w-[12.5cqw] max-w-[100px]`, aligning the web preview with the backend vector PDF output.
+
+### 3. Verification & Results
+- Verified TypeScript compilation:
+  - `progemini-backend`: `npx tsc --noEmit` exited with code 0 (0 errors).
+  - `progemini-frontend`: `npx tsc --noEmit` exited with code 0 (0 errors).
+
+
 

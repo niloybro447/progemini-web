@@ -191,9 +191,9 @@ export const ProgeminiMarkSheet = forwardRef<HTMLDivElement, ProgeminiMarkSheetP
           {/* ════════════════════ TOP HEADER & CREST ════════════════════ */}
           <div className="flex flex-col items-center text-center">
             {/* Progemini Academy Crest */}
-            <div className="w-[10cqw] max-w-[80px] h-[10cqw] max-h-[80px] mb-[0.4cqw]">
+            <div className="w-[12.5cqw] max-w-[100px] h-[12.5cqw] max-h-[100px] mb-[0.6cqw]">
               <img
-                src="/logo.png"
+                src="/certitifacte/fab-icon.gif"
                 alt="Progemini Academy"
                 className="w-full h-full object-contain mx-auto"
                 crossOrigin="anonymous"
@@ -201,10 +201,10 @@ export const ProgeminiMarkSheet = forwardRef<HTMLDivElement, ProgeminiMarkSheetP
             </div>
 
             {/* Institution Typography */}
-            <h1 className="marksheet-serif font-black text-[#7a0019] text-[3.4cqw] tracking-[0.16em] uppercase leading-tight">
+            <h1 className="marksheet-cinzel font-black text-[#7a0019] text-[3.6cqw] tracking-[0.16em] uppercase leading-tight">
               PROGEMINI
             </h1>
-            <p className="marksheet-serif font-bold text-[#7a0019] text-[1.75cqw] tracking-[0.32em] uppercase mt-[0.2cqw] leading-tight">
+            <p className="marksheet-cinzel font-bold text-[#7a0019] text-[1.8cqw] tracking-[0.34em] uppercase mt-[0.2cqw] leading-tight">
               ACADEMY
             </p>
             <p className="marksheet-sans font-semibold text-[#1f2937] text-[1.02cqw] tracking-[0.24em] uppercase mt-[0.25cqw] leading-tight">

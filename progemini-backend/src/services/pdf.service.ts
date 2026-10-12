@@ -194,7 +194,10 @@ export interface MarksheetPdfData {
 }
 
 export async function generateMarksheetHtml(data: MarksheetPdfData): Promise<string> {
-  const logoDataUri = getAssetAsBase64("logo.png");
+  const logoDataUri =
+    getAssetAsBase64("certitifacte/fab-icon.gif") ||
+    getAssetAsBase64("logo.png") ||
+    getAssetAsBase64("certitifacte/logo.png");
   const signDataUri = getAssetAsBase64("certitifacte/e.marphy.png");
   const sealDataUri = getAssetAsBase64("certitifacte/academy-seal.png");
 
@@ -334,32 +337,32 @@ export async function generateMarksheetHtml(data: MarksheetPdfData): Promise<str
     }
 
     .header-crest {
-      width: 68px;
-      height: 68px;
+      width: 90px;
+      height: 90px;
       object-fit: contain;
-      margin: 0 auto 3px auto;
+      margin: 0 auto 5px auto;
       display: block;
     }
 
     .header-inst-title {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-weight: 900;
+      font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
+      font-weight: 800;
       color: #7a0019;
-      font-size: 26px;
+      font-size: 28px;
       letter-spacing: 0.16em;
       text-transform: uppercase;
-      line-height: 1.1;
+      line-height: 1.05;
       text-align: center;
     }
 
     .header-inst-sub {
-      font-family: 'Playfair Display', Georgia, serif;
+      font-family: 'Cinzel', Georgia, serif;
       font-weight: 700;
       color: #7a0019;
       font-size: 14px;
-      letter-spacing: 0.32em;
+      letter-spacing: 0.34em;
       text-transform: uppercase;
-      margin-top: 1px;
+      margin-top: 2px;
       text-align: center;
     }
 
