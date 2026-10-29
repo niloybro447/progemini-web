@@ -6,7 +6,7 @@ import { getFileUrl } from '@/lib/utils';
 
 async function getFeaturedCourses() {
   try {
-    const all = await serverFetch<any[]>('/v1/courses');
+    const all = await serverFetch<any[]>('/v1/courses', { next: { revalidate: 300 } });
     return all
       .filter((c: any) => c.isFeatured)
       .sort((a: any, b: any) => (a.featuredOrder ?? 999) - (b.featuredOrder ?? 999) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

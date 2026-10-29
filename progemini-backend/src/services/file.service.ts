@@ -2,6 +2,7 @@ import { prisma } from "@/config/prisma";
 import { AppError } from "@/utils/ApiError";
 import minioService from "@/utils/minio";
 import { logger } from "@/utils/logger";
+import { optimizeImage } from "@/utils/imageOptimizer";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
 
@@ -27,16 +28,33 @@ export async function uploadFile(
   }
 
   const targetBucket = process.env.MINIO_BUCKET_NAME || "progemini-main-website-files";
-  const { slug, size } = await minioService.uploadFile(file.buffer, file.originalname, file.mimetype, "application", targetBucket);
+  let uploadBuffer = file.buffer;
+  let uploadMime = file.mimetype;
+  let uploadName = file.originalname;
+
+  if (file.mimetype.startsWith("image/") && file.mimetype !== "image/svg+xml") {
+    const isProfilePic = options.fileType === "PROFILE_PICTURE";
+    const optimized = await optimizeImage(file.buffer, file.originalname, file.mimetype, {
+      maxWidth: isProfilePic ? 600 : 1600,
+      maxHeight: isProfilePic ? 600 : 1200,
+      quality: 80,
+      format: "webp",
+    });
+    uploadBuffer = optimized.buffer;
+    uploadMime = optimized.mimeType;
+    uploadName = optimized.originalName;
+  }
+
+  const { slug, size } = await minioService.uploadFile(uploadBuffer, uploadName, uploadMime, "application", targetBucket);
 
   const fileRecord = await prisma.file.create({
     data: {
-      fileName: file.originalname.split(".")[0],
-      originalName: file.originalname,
+      fileName: uploadName.split(".")[0],
+      originalName: uploadName,
       slug,
       fullUrl: `${API_BASE}/api/v1/files/download/${slug}`,
       fileType: (options.fileType as "ADMISSION_DOCUMENT" | "PROFILE_PICTURE" | "CERTIFICATE" | "OTHER") || "ADMISSION_DOCUMENT",
-      mimeType: file.mimetype,
+      mimeType: uploadMime,
       fileSize: size,
       bucketName: targetBucket,
       isTemporary: options.isTemporary === "true",
@@ -138,11 +156,29 @@ export async function adminUploadFile(file: Express.Multer.File, folder?: string
     throw AppError.badRequest("Invalid file type");
   }
 
-  const { slug, size } = await minioService.uploadFile(file.buffer, file.originalname, file.mimetype, folder);
+  let uploadBuffer = file.buffer;
+  let uploadMime = file.mimetype;
+  let uploadName = file.originalname;
+
+  // Compress and convert course feature images and photos to lightweight WebP
+  if (file.mimetype.startsWith("image/") && file.mimetype !== "image/svg+xml") {
+    const isFeatureImage = folder === "course-features";
+    const optimized = await optimizeImage(file.buffer, file.originalname, file.mimetype, {
+      maxWidth: isFeatureImage ? 1920 : 1600,
+      maxHeight: isFeatureImage ? 1080 : 1200,
+      quality: 82,
+      format: "webp",
+    });
+    uploadBuffer = optimized.buffer;
+    uploadMime = optimized.mimeType;
+    uploadName = optimized.originalName;
+  }
+
+  const { slug, size } = await minioService.uploadFile(uploadBuffer, uploadName, uploadMime, folder);
   return {
     slug,
     size,
-    fileName: file.originalname,
+    fileName: uploadName,
     downloadUrl: `${API_BASE}/api/v1/files/download/${slug}`,
   };
 }

@@ -60,7 +60,41 @@ async function updateCourseTotals(courseId: string): Promise<void> {
 
 // ─── Public Courses ────────────────────────────────────
 
-export async function listCourses(query: { category?: string; search?: string; status?: string }) {
+export const COURSE_CARD_SELECT = {
+  id: true,
+  title: true,
+  slug: true,
+  shortDescription: true,
+  thumbnail: true,
+  featureImage: true,
+  price: true,
+  discountPrice: true,
+  level: true,
+  duration: true,
+  totalLearningHour: true,
+  award: true,
+  awardedBy: true,
+  credits: true,
+  deliveryMode: true,
+  status: true,
+  isPublished: true,
+  isFeatured: true,
+  featuredOrder: true,
+  totalLectures: true,
+  totalDuration: true,
+  createdAt: true,
+  updatedAt: true,
+  categoryId: true,
+  category: true,
+  _count: {
+    select: {
+      enrollments: true,
+      reviews: true,
+    },
+  },
+};
+
+export async function listCourses(query: { category?: string; search?: string; status?: string; full?: string; includeDetails?: string; all?: string }) {
   const where: Record<string, unknown> = {};
 
   if (query.category) {
@@ -76,15 +110,24 @@ export async function listCourses(query: { category?: string; search?: string; s
   if (query.status) {
     where.status = query.status.toUpperCase();
   } else {
-    where.isPublished = true;
+    if (query.all !== "1" && query.all !== "true") where.isPublished = true;
+  }
+
+  const isFullRequested = query.full === "true" || query.includeDetails === "true";
+  if (isFullRequested) {
+    return prisma.course.findMany({
+      where,
+      include: {
+        category: true,
+        _count: { select: { enrollments: true, reviews: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   return prisma.course.findMany({
     where,
-    include: {
-      category: true,
-      _count: { select: { enrollments: true, reviews: true } },
-    },
+    select: COURSE_CARD_SELECT,
     orderBy: { createdAt: "desc" },
   });
 }
@@ -187,8 +230,8 @@ export async function createAdminCourse(data: Record<string, unknown>) {
       metaTitle: (data.metaTitle as string) || "",
       metaDescription: (data.metaDescription as string) || "",
       metaKeywords: (data.metaKeywords as string[]) || [],
-      status: "DRAFT",
-      isPublished: false,
+      status: ((data.status as string) || "DRAFT") as never,
+      isPublished: Boolean(data.isPublished),
       isFeatured: (data.isFeatured as boolean) || false,
       featuredOrder: data.isFeatured && data.featuredOrder ? (data.featuredOrder as number) : null,
       price: (data.price as number) || 0,

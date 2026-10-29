@@ -10,7 +10,7 @@ const ALLOWED_MIMES = new Set([
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
 
-const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_SIZE = 25 * 1024 * 1024; // 25MB (compressed down to WebP automatically)
 
 export const upload = multer({
   storage: multer.memoryStorage(),

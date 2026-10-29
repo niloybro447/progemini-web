@@ -35,25 +35,25 @@ export default function ResearchPage() {
       name: 'Dr Syed K I Bakht',
       discipline: 'Leadership, Culture & Management',
       areas: ['Business Strategy', 'Higher Education Leadership', 'Organisational Development', 'Innovation-Driven Management'],
-      image: '/profile-image/kenan updated.png',
+      image: '/profile-image/kenan updated.webp',
     },
     {
       name: 'Prof. Peter Hastings',
       discipline: 'Law & Linguistics',
       areas: ['International Law', 'Applied Linguistics', 'Governance', 'Cross-Cultural Communication'],
-      image: '/profile-image/peter hastings.png',
+      image: '/profile-image/peter hastings.webp',
     },
     {
       name: 'Dr David Graves',
       discipline: 'Fraud & Risk Management',
       areas: ['Fraud Investigation', 'Financial Crime', 'Corporate Compliance', 'Forensic Risk Management'],
-      image: '/profile-image/david (2).png',
+      image: '/profile-image/david (2).webp',
     },
     {
       name: 'Dr Addo Anyani-Boadum',
       discipline: 'Management & Finance',
       areas: ['Strategic Finance', 'Corporate Management', 'Investment Analysis', 'Financial Governance'],
-      image: '/profile-image/adddo.png',
+      image: '/profile-image/adddo.webp',
     },
   ];
 
@@ -179,6 +179,8 @@ export default function ResearchPage() {
                       src={faculty.image}
                       alt={faculty.name}
                       fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 240px"
+                      loading="lazy"
                       className="object-cover group-hover:scale-110 transition-transform duration-300"
                     />
 

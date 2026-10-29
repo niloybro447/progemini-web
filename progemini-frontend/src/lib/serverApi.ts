@@ -32,12 +32,12 @@ export async function serverFetch<T>(endpoint: string, options?: RequestInit): P
 
   const res = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
+    cache: options?.cache ?? (options?.next?.revalidate !== undefined ? undefined : "no-store"),
     headers: {
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(cookieHeader ? { Cookie: cookieHeader } : {}),
       ...options?.headers,
     },
-    cache: "no-store",
   });
 
   if (!res.ok) {

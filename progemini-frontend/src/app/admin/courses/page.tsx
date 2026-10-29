@@ -3,11 +3,36 @@ import Link from 'next/link';
 import { CourseTableRow } from '@/components/admin/CourseTableRow';
 
 async function getCourses() {
-  return await serverFetch<any[]>('/v1/courses?sort=createdAt&order=desc&include=category,_count');
+  try {
+    return await serverFetch<any[]>('/v1/admin/courses');
+  } catch {
+    return await serverFetch<any[]>('/v1/courses?all=1&sort=createdAt&order=desc&include=category,_count');
+  }
 }
 
-export default async function CoursesPage() {
+export default async function CoursesPage({
+  searchParams,
+}: {
+  searchParams?: { filter?: string };
+}) {
   const courses = await getCourses();
+  const activeFilter = (searchParams?.filter || 'ALL').toUpperCase();
+
+  const filteredCourses = courses.filter((c) => {
+    if (activeFilter === 'DRAFT') return c.status === 'DRAFT';
+    if (activeFilter === 'PENDING') return c.status === 'PENDING';
+    if (activeFilter === 'APPROVED') return c.status === 'APPROVED';
+    if (activeFilter === 'PUBLISHED') return Boolean(c.isPublished);
+    return true;
+  });
+
+  const tabs = [
+    { key: 'ALL', label: `All (${courses.length})`, href: '/admin/courses' },
+    { key: 'DRAFT', label: `Draft (${courses.filter((c) => c.status === 'DRAFT').length})`, href: '/admin/courses?filter=DRAFT' },
+    { key: 'PENDING', label: `Pending (${courses.filter((c) => c.status === 'PENDING').length})`, href: '/admin/courses?filter=PENDING' },
+    { key: 'APPROVED', label: `Approved (${courses.filter((c) => c.status === 'APPROVED').length})`, href: '/admin/courses?filter=APPROVED' },
+    { key: 'PUBLISHED', label: `Published (${courses.filter((c) => c.isPublished).length})`, href: '/admin/courses?filter=PUBLISHED' },
+  ];
 
   return (
     <div className="p-8">
@@ -27,17 +52,23 @@ export default async function CoursesPage() {
 
       {/* Filters */}
       <div className="card p-4 mb-6">
-        <div className="flex items-center space-x-4">
-          <button className="px-4 py-2 bg-brand-primary text-white rounded-lg">All ({courses.length})</button>
-          <button className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
-            Pending ({courses.filter(c => c.status === 'PENDING').length})
-          </button>
-          <button className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
-            Approved ({courses.filter(c => c.status === 'APPROVED').length})
-          </button>
-          <button className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
-            Published ({courses.filter(c => c.isPublished).length})
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {tabs.map((tab) => {
+            const isActive = activeFilter === tab.key;
+            return (
+              <Link
+                key={tab.key}
+                href={tab.href}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-brand-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
@@ -65,9 +96,17 @@ export default async function CoursesPage() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {courses.map((course) => (
-                <CourseTableRow key={course.id} course={course} />
-              ))}
+              {filteredCourses.length > 0 ? (
+                filteredCourses.map((course) => (
+                  <CourseTableRow key={course.id} course={course} />
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    No courses found matching this filter.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

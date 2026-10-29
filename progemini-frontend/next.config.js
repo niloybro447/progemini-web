@@ -30,7 +30,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '185.239.208.206', port: '9000' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
     ],
-    formats: ['image/webp'],
+    formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 828, 1080, 1200, 1920],
     imageSizes: [64, 128, 256, 384],
     minimumCacheTTL: 31536000,

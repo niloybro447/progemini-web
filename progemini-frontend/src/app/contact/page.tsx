@@ -10,7 +10,7 @@ export const metadata = {
 
 const campusGallery = [
   {
-    src: "/campus-image/campus outside.png",
+    src: "/campus-image/campus outside.webp",
     alt: "Progemini Academy Outside View",
     title: "Main Campus Entrance",
     description: "Our historic headquarters at 40 Rodney Street, Liverpool."
@@ -160,6 +160,8 @@ export default function ContactPage() {
                     src={image.src}
                     alt={image.alt}
                     fill
+                    sizes="(max-width: 768px) 100vw, 500px"
+                    loading="lazy"
                     className="object-cover transition-transform duration-500 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">

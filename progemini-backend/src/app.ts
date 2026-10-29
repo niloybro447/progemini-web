@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import { config } from "@/config";
 import { logger } from "@/utils/logger";
@@ -10,6 +11,9 @@ import { errorHandler } from "@/middlewares/errorHandler";
 
 export function createApp(): express.Express {
   const app = express();
+
+  // Enable gzip/deflate response compression
+  app.use(compression());
 
   // Security headers
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));

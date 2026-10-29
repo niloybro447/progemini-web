@@ -13,7 +13,7 @@ import PartnerUniversitiesSection from '@/components/home/PartnerUniversitiesSec
 
 async function getPartnerUniversities() {
   try {
-    const partners = await serverFetch<any[]>('/v1/partner-universities?all=1');
+    const partners = await serverFetch<any[]>('/v1/partner-universities?all=1', { next: { revalidate: 300 } });
     return partners;
   } catch (error) {
     console.error('Error fetching partner universities for homepage:', error);

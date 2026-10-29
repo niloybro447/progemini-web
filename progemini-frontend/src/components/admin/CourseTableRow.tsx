@@ -85,7 +85,9 @@ export function CourseTableRow({ course }: CourseTableRowProps) {
                   ? 'badge-green'
                   : course.status === 'PENDING'
                     ? 'bg-yellow-100 text-yellow-700'
-                    : 'bg-red-100 text-red-700'
+                    : course.status === 'DRAFT'
+                      ? 'bg-gray-100 text-gray-700'
+                      : 'bg-red-100 text-red-700'
               }`}
             >
               {course.status}
@@ -94,7 +96,7 @@ export function CourseTableRow({ course }: CourseTableRowProps) {
           </div>
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {course._count.enrollments}
+          {course._count?.enrollments ?? 0}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
           <div className="flex items-center justify-end gap-2">
