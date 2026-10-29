@@ -8,6 +8,8 @@ import {
   FaLinkedin, FaUser, FaLink, FaImage, FaListUl
 } from 'react-icons/fa';
 import { apiClient } from '@/lib/apiClient';
+import { getFileUrl } from '@/lib/utils';
+
 
 const EMPTY_RICH: RichContent = { json: null, html: '' };
 
@@ -119,10 +121,12 @@ export default function AdminGlobalLeadershipPage() {
 
     try {
       const data = await apiClient.upload<{ url?: string; downloadUrl: string }>('/v1/files/upload', uploadData);
+      const rawUrl = data.url || data.downloadUrl || '';
+      const cleanUrl = rawUrl.replace(/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i, '');
       
       setForm((prev) => ({
         ...prev,
-        [isDesktop ? 'imageUrlDesktop' : 'imageUrlMobile']: data.url || data.downloadUrl || ''
+        [isDesktop ? 'imageUrlDesktop' : 'imageUrlMobile']: cleanUrl
       }));
       setSuccess(`${isDesktop ? 'Desktop' : 'Mobile'} image uploaded successfully.`);
     } catch (err: any) {
@@ -456,7 +460,7 @@ export default function AdminGlobalLeadershipPage() {
                 {form.imageUrlDesktop && (
                   <div className="flex items-center gap-4 bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                     <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-100 flex-shrink-0 bg-gray-50">
-                      <Image src={form.imageUrlDesktop} alt="Desktop Preview" fill className="object-contain" />
+                      <Image src={getFileUrl(form.imageUrlDesktop)} alt="Desktop Preview" fill className="object-contain" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800">Desktop Image Selected</p>
@@ -473,7 +477,7 @@ export default function AdminGlobalLeadershipPage() {
                 {form.imageUrlMobile && (
                   <div className="flex items-center gap-4 bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                     <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-100 flex-shrink-0 bg-gray-50">
-                      <Image src={form.imageUrlMobile} alt="Mobile Preview" fill className="object-contain" />
+                      <Image src={getFileUrl(form.imageUrlMobile)} alt="Mobile Preview" fill className="object-contain" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-gray-800">Mobile Image Selected</p>
@@ -678,7 +682,7 @@ export default function AdminGlobalLeadershipPage() {
                     <td className="px-6 py-4">
                       <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-200 bg-gray-50">
                         {profile.imageUrlDesktop ? (
-                          <Image src={profile.imageUrlDesktop} alt={profile.name} fill className="object-cover" />
+                          <Image src={getFileUrl(profile.imageUrlDesktop)} alt={profile.name} fill className="object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
                             <FaUser />

@@ -4,7 +4,14 @@ import minioService from "@/utils/minio";
 import { logger } from "@/utils/logger";
 import { optimizeImage } from "@/utils/imageOptimizer";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000";
+function buildFileUrl(slug: string): string {
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+  if (base && !base.includes("localhost") && !base.includes("127.0.0.1")) {
+    const cleanBase = base.endsWith("/api") ? base.slice(0, -4) : base;
+    return `${cleanBase}/api/files/download/${slug}`;
+  }
+  return `/api/files/download/${slug}`;
+}
 
 const ALLOWED_MIMES = new Set([
   "application/pdf",
@@ -52,7 +59,7 @@ export async function uploadFile(
       fileName: uploadName.split(".")[0],
       originalName: uploadName,
       slug,
-      fullUrl: `${API_BASE}/api/v1/files/download/${slug}`,
+      fullUrl: buildFileUrl(slug),
       fileType: (options.fileType as "ADMISSION_DOCUMENT" | "PROFILE_PICTURE" | "CERTIFICATE" | "OTHER") || "ADMISSION_DOCUMENT",
       mimeType: uploadMime,
       fileSize: size,
@@ -105,7 +112,7 @@ export async function getFileById(userId: string, role: string, fileId: string) 
   if (file.uploadedById !== userId && role !== "ADMIN") throw AppError.forbidden("Forbidden");
 
   await prisma.file.update({ where: { id: fileId }, data: { lastAccessedAt: new Date() } });
-  return { ...file, fullUrl: `${API_BASE}/api/v1/files/download/${file.slug}` };
+  return { ...file, fullUrl: buildFileUrl(file.slug) };
 }
 
 export async function updateFile(userId: string, role: string, fileId: string, data: { fileName?: string; fileType?: string; applicationId?: string | null }) {
@@ -179,7 +186,7 @@ export async function adminUploadFile(file: Express.Multer.File, folder?: string
     slug,
     size,
     fileName: uploadName,
-    downloadUrl: `${API_BASE}/api/v1/files/download/${slug}`,
+    downloadUrl: buildFileUrl(slug),
   };
 }
 

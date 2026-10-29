@@ -148,3 +148,62 @@ Based on the diagnostic audit previously conducted (`chat_analysis_2026-10-22.md
 - Updated [`progemini-frontend/src/app/admin/courses/page.tsx`](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/app/admin/courses/page.tsx) to fetch from `/v1/admin/courses` (with fallback to `/v1/courses?all=1`) and added working filter tabs (`All`, `Draft`, `Pending`, `Approved`, `Published`).
 - Updated [`progemini-backend/src/services/course.service.ts`](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/src/services/course.service.ts) so `listCourses` respects `all=1` (returning unpublished/draft courses when requested) and `createAdminCourse` preserves the `status` and `isPublished` values passed from the form.
 - Updated [`progemini-frontend/src/components/admin/CourseTableRow.tsx`](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-frontend/src/components/admin/CourseTableRow.tsx) to render a dedicated gray badge (`bg-gray-100 text-gray-700`) for `DRAFT` status courses.
+
+
+---
+
+## Update: VPS Deployment & Nginx Update Commands
+
+**Date:** 2026-10-30  
+**User Query:** "what are the commands to deploy in vps... also nginx is updated."
+
+### Complete VPS Deployment Sequence:
+1. **Commit & Push from Local Machine:**
+   ```bash
+   git add .
+   git commit -m "perf: image compressor, nextjs sizes, public webp, nginx cache, admin draft courses fix"
+   git push origin main
+   ```
+2. **Pull Latest Code on Contabo VPS:**
+   ```bash
+   cd /path/to/progemini-web
+   git pull origin main
+   ```
+3. **Update Nginx Cache Directories & Config on VPS:**
+   ```bash
+   sudo mkdir -p /var/cache/nginx/next_images /var/cache/nginx/api_files
+   sudo chown -R www-data:www-data /var/cache/nginx
+   sudo cp nginx.conf /etc/nginx/sites-available/progemini
+   sudo ln -sf /etc/nginx/sites-available/progemini /etc/nginx/sites-enabled/progemini
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+4. **Rebuild & Restart Docker Containers (Backend + Frontend):**
+   ```bash
+   docker compose -f docker-compose.yml up -d --build progemini-backend progemini-app-prod
+   ```
+   *(Or use `./deploy-prod.sh redeploy -d` for frontend along with rebuilding backend).*
+
+
+---
+
+## Update: Git Merge Conflict Resolution in `file.service.ts`
+
+**Date:** 2026-10-30  
+**User Query:** "fix the auto conflicts. why the conflict happen??"
+
+### Why the Conflict Happened:
+- A newer commit on `origin/main` (`ed7af49`) refactored file download URL generation in [`progemini-backend/src/services/file.service.ts`](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/src/services/file.service.ts) to use `buildFileUrl(slug)` on line 193 instead of `${API_BASE}/api/v1/files/download/${slug}`.
+- Locally, we updated the line immediately above it (`fileName: uploadName` for the WebP-compressed filename). Because both edits touched adjacent lines inside the same `return { ... }` block of `adminUploadFile`, Git paused automatic merging so neither change would be lost.
+
+### Resolution Applied:
+- Combined both changes cleanly in [`progemini-backend/src/services/file.service.ts`](file:///d:/Sikku%20works/proGemini/web/progemini-web/progemini-backend/src/services/file.service.ts#L185-L191):
+  ```ts
+  return {
+    slug,
+    size,
+    fileName: uploadName,
+    downloadUrl: buildFileUrl(slug),
+  };
+  ```
+- Updated [`nginx.conf`](file:///d:/Sikku%20works/proGemini/web/progemini-web/nginx.conf#L99-L100) (`location ~ ^/api/(v1/)?files/download/`) so Nginx disk-caches both `/api/files/download/...` and `/api/v1/files/download/...`.
+- Verified `tsc --noEmit` in `progemini-backend` passes with 0 errors.
