@@ -1,6 +1,6 @@
 "use client";
 
-import { FaCheckCircle, FaChevronDown, FaChevronUp, FaPlayCircle, FaBriefcase, FaGraduationCap, FaClipboardCheck, FaTimes } from "react-icons/fa";
+import { FaCheckCircle, FaBook, FaChevronDown, FaChevronUp, FaPlayCircle, FaBriefcase, FaGraduationCap, FaClipboardCheck, FaTimes } from "react-icons/fa";
 import Link from "next/link";
 import { useState } from "react";
 import { CourseRichRenderer, isRichContentEmpty } from "@/components/admin/CourseRichEditor";
@@ -199,6 +199,48 @@ export default function CourseContent({ course, relatedCourses }: CourseContentP
           </div>
         </div>
       ))}
+
+      {/* Supporting Academic Guides & Blog Articles */}
+      {Array.isArray(course.blogs) && course.blogs.length > 0 && (
+        <div className="card p-6 border-l-4 border-brand-primary">
+          <div className="flex items-center space-x-3 mb-4">
+            <FaBook className="text-brand-primary text-xl flex-shrink-0" />
+            <div>
+              <h2 className="heading-3">Academic Guides & Supporting Insights</h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Faculty guidance, timetable strategies, and career pathways supporting this programme.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+            {course.blogs.map((blog: any) => (
+              <Link
+                key={blog.id || blog.slug}
+                href={`/blog/${blog.slug}`}
+                className="group block p-4 rounded-xl border border-gray-200 hover:border-brand-primary/50 hover:shadow-md transition-all bg-white"
+              >
+                <div className="flex items-center justify-between text-[11px] font-bold text-brand-primary uppercase tracking-wider mb-1.5">
+                  <span>Programme Guide</span>
+                  <span className="text-gray-400 font-medium lowercase">
+                    {blog.readMins || 5} min read
+                  </span>
+                </div>
+                <h3 className="font-bold text-gray-900 group-hover:text-brand-primary transition-colors text-sm line-clamp-2 leading-snug">
+                  {blog.title}
+                </h3>
+                {blog.excerpt && (
+                  <p className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">
+                    {blog.excerpt}
+                  </p>
+                )}
+                <span className="mt-3 inline-flex items-center text-xs font-semibold text-brand-primary gap-1 group-hover:translate-x-1 transition-transform">
+                  Read Full Guide &rarr;
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {relatedCourses.length > 0 && (
         <div>

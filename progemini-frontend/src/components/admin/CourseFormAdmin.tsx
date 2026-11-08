@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { FaPlus, FaTrash, FaGripVertical } from "react-icons/fa";
+import { FaPlus, FaTrash, FaGripVertical, FaBook } from "react-icons/fa";
 import { apiClient } from "@/lib/apiClient";
 import CourseContentManager from "./CourseContentManager";
 import CourseRichEditor, { type RichContent } from "./CourseRichEditor";
@@ -185,6 +185,25 @@ export default function CourseFormAdmin({
   };
 
   // Featured order: track which slots are taken by other courses
+  // Step 3 — Linked supporting blogs
+  const [selectedBlogIds, setSelectedBlogIds] = useState<string[]>(() => {
+    if (Array.isArray(initialData?.blogs)) {
+      return initialData.blogs.map((b: any) => b.id);
+    }
+    return [];
+  });
+  const [allBlogs, setAllBlogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    apiClient
+      .get<any>('/admin/blogs?limit=100')
+      .then((res) => {
+        const list = res?.data?.posts || res?.posts || [];
+        setAllBlogs(list);
+      })
+      .catch(() => {});
+  }, []);
+
   const [takenOrders, setTakenOrders] = useState<number[]>([]);
 
   useEffect(() => {
@@ -268,6 +287,7 @@ export default function CourseFormAdmin({
     metaTitle: formData.metaTitle.trim(),
     metaDescription: formData.metaDescription.trim(),
     metaKeywords: formData.metaKeywords.split(",").map((k: string) => k.trim()).filter(Boolean),
+    blogIds: selectedBlogIds,
     customSections: JSON.stringify(
       customSections.map(s => ({
         id: s.id,
@@ -789,6 +809,87 @@ export default function CourseFormAdmin({
             </div>
           )}
           {createdCourseId && <CourseContentManager courseId={createdCourseId} />}
+          {/* ── Linked Blogs Card ── */}
+          <div className="card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <FaBook className="text-brand-primary" />
+                  Linked Supporting Blogs & Academic Guides
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Mention and connect supporting blog articles to this course (e.g. entry guides, supervisor insights, sample timetable).
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {selectedBlogIds.length > 0 ? (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                    Currently Linked Articles ({selectedBlogIds.length})
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {selectedBlogIds.map((bId) => {
+                      const blog = allBlogs.find((b) => b.id === bId) || initialData?.blogs?.find((b: any) => b.id === bId);
+                      return (
+                        <div
+                          key={bId}
+                          className="flex items-center justify-between p-3.5 bg-red-50/70 border border-red-200 rounded-xl"
+                        >
+                          <div className="min-w-0 pr-2">
+                            <span className="font-bold text-xs text-gray-900 block truncate">
+                              {blog?.title || bId}
+                            </span>
+                            <span className="text-[11px] text-gray-500 font-mono block truncate">
+                              /blog/{blog?.slug || ''}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBlogIds(prev => prev.filter(id => id !== bId))}
+                            className="text-xs text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-100 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-500 text-center">
+                  No supporting articles currently linked. Select an article below to attach it to this course.
+                </div>
+              )}
+
+              <div className="pt-3 border-t">
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">
+                  Attach A Blog Article
+                </label>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (id && !selectedBlogIds.includes(id)) {
+                      setSelectedBlogIds(prev => [...prev, id]);
+                    }
+                  }}
+                  className="input-field"
+                >
+                  <option value="">-- Select a blog article from your CMS to attach --</option>
+                  {allBlogs
+                    .filter((b) => !selectedBlogIds.includes(b.id))
+                    .map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.title} ({b.category?.name || 'General'})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
           <div className="card p-6">
             <h2 className="text-xl font-semibold mb-4">SEO and Tags</h2>
             <div className="space-y-4">

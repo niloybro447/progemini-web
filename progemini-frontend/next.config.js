@@ -29,6 +29,7 @@ const nextConfig = {
       { protocol: 'https', hostname: '185.239.208.206' },
       { protocol: 'https', hostname: '185.239.208.206', port: '9000' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 828, 1080, 1200, 1920],

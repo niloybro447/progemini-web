@@ -47,7 +47,6 @@ export const undergraduateCourses: CoursesData = {
     { title: 'BSc (Hons) Business and Human Resource Management', slug: 'bsc-business-hrm' },
     { title: 'BSc (Hons) Business, Hospitality and Events Management', slug: 'bsc-business-hospitality-events' },
     { title: 'BSc (Hons) Business and Tourism Management', slug: 'bsc-business-tourism-management' },
-    { title: 'BSc ( Hons) Business Hospitality Management', slug: 'bsc-business-hospitality-management' }
   ],
   'health-and-social-care': [
     { title: 'BSc (Hons) Health and Social Care', slug: 'bsc-health-social-care' },
@@ -59,7 +58,6 @@ export const undergraduateCourses: CoursesData = {
     { title: 'LLB (Hons) Law', slug: 'llb-law' },
     { title: 'BSc (Hons) Fraud Investigation  Management', slug: 'bsc-fraud-investigation-management' },
     { title: 'Diploma in Fraud Investigation Management', slug: 'diploma-fraud-investigation-management' },
-    { title: 'Advanced Diploma Fraud Investigation Management', slug: 'advanced-diploma-fraud-investigation-management' },
   ],
 };
 

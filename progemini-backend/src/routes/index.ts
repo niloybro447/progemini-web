@@ -13,6 +13,7 @@ import emailRoutes from "@/routes/email.routes";
 import studentProfileRoutes from "@/routes/studentProfile.routes";
 import certificateRoutes from "@/routes/certificate.routes";
 import marksheetRoutes from "@/routes/marksheet.routes";
+import blogRoutes from "@/routes/blog.routes";
 import * as oc from "@/controllers/order.controller";
 
 const router = Router();
@@ -36,6 +37,7 @@ router.use("/v1", attendanceRoutes);
 router.use("/v1", dashboardRoutes);
 router.use("/v1/admin/email", emailRoutes);
 router.use("/v1/email", emailRoutes);
+router.use("/v1", blogRoutes);
 
 // Stripe webhook — raw body handled in app.ts, auth via signature
 router.post("/v1/webhooks/stripe", oc.handleStripeWebhook);
@@ -58,5 +60,6 @@ router.use("/", attendanceRoutes);
 router.use("/", dashboardRoutes);
 router.use("/admin/email", emailRoutes);
 router.use("/email", emailRoutes);
+router.use("/", blogRoutes);
 
 export default router;

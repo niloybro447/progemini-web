@@ -24,6 +24,8 @@ import {
   FaShieldAlt,
   FaIdCard,
   FaCertificate,
+  FaNewspaper,
+  FaTags,
 } from 'react-icons/fa';
 import { signOut } from 'next-auth/react';
 import { useState } from 'react';
@@ -34,6 +36,12 @@ const menuItems = [
   { icon: FaFileAlt, label: 'Applications', href: '/admin/applications' },
   { icon: FaEnvelope, label: 'Enquiries', href: '/admin/enquiries' },
   { icon: FaBook, label: 'All Courses', href: '/admin/courses' },
+];
+
+const blogItems = [
+  { icon: FaNewspaper, label: 'All Blogs', href: '/admin/blogs' },
+  { icon: FaPlusCircle, label: 'Create Blog', href: '/admin/blogs/create' },
+  { icon: FaTags, label: 'Categories', href: '/admin/blogs/categories' },
 ];
 
 const verificationItems = [
@@ -66,6 +74,9 @@ export default function AdminSidebar() {
   );
   const [webPagesOpen, setWebPagesOpen] = useState(
     pathname.startsWith('/admin/web-pages')
+  );
+  const [blogsOpen, setBlogsOpen] = useState(
+    pathname.startsWith('/admin/blogs')
   );
 
   const handleNavClick = () => {
@@ -189,6 +200,47 @@ export default function AdminSidebar() {
                       }`}
                   >
                     <item.icon className="flex-shrink-0 text-sm" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Blogs & CMS accordion */}
+        <div>
+          <button
+            onClick={() => setBlogsOpen((o) => !o)}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors ${
+              pathname.startsWith('/admin/blogs')
+                ? 'bg-brand-primary text-white'
+                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <span className="flex items-center gap-3">
+              <FaNewspaper className="text-xl flex-shrink-0" />
+              <span>Blogs & CMS</span>
+            </span>
+            <FaChevronDown className={`text-xs transition-transform ${blogsOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {blogsOpen && (
+            <div className="mt-1 ml-4 space-y-1 border-l border-gray-600 pl-3">
+              {blogItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={handleNavClick}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                      isActive
+                        ? 'bg-brand-primary text-white font-semibold'
+                        : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                    }`}
+                  >
+                    <item.icon className="flex-shrink-0" />
                     <span>{item.label}</span>
                   </Link>
                 );

@@ -207,3 +207,28 @@ Based on the diagnostic audit previously conducted (`chat_analysis_2026-10-22.md
   ```
 - Updated [`nginx.conf`](file:///d:/Sikku%20works/proGemini/web/progemini-web/nginx.conf#L99-L100) (`location ~ ^/api/(v1/)?files/download/`) so Nginx disk-caches both `/api/files/download/...` and `/api/v1/files/download/...`.
 - Verified `tsc --noEmit` in `progemini-backend` passes with 0 errors.
+
+
+---
+
+## Update: Fix Duplicate Nginx Site File (`progemini` vs `progemini.academy`)
+
+**Date:** 2026-10-30  
+**User Query:** "`duplicate upstream \"progemini_frontend\" in /etc/nginx/sites-enabled/progemini.academy:8` `nginx: configuration file /etc/nginx/nginx.conf test failed`"
+
+### Root Cause:
+- The VPS already had the site config named `/etc/nginx/sites-available/progemini.academy` (linked at `/etc/nginx/sites-enabled/progemini.academy`).
+- Creating `/etc/nginx/sites-enabled/progemini` resulted in two enabled site files defining the same `progemini_frontend` upstream and port `443` listener.
+
+### Resolution Commands on VPS:
+```bash
+# 1. Remove the duplicate 'progemini' config & symlink
+sudo rm -f /etc/nginx/sites-enabled/progemini /etc/nginx/sites-available/progemini
+
+# 2. Overwrite the existing 'progemini.academy' config
+sudo cp nginx.conf /etc/nginx/sites-available/progemini.academy
+sudo ln -sf /etc/nginx/sites-available/progemini.academy /etc/nginx/sites-enabled/progemini.academy
+
+# 3. Test and reload Nginx
+sudo nginx -t && sudo systemctl reload nginx
+```

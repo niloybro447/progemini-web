@@ -147,6 +147,17 @@ export async function getCourseById(id: string) {
         include: { lessons: { orderBy: { order: "asc" } } },
         orderBy: { order: "asc" },
       },
+      blogs: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          isPublished: true,
+          excerpt: true,
+          readMins: true,
+          publishedAt: true,
+        },
+      },
     },
   });
   if (!course) throw AppError.notFound("Course not found");
@@ -162,6 +173,18 @@ export async function getCourseBySlug(slug: string) {
         include: { lessons: { orderBy: { order: "asc" } } },
         orderBy: { order: "asc" },
       },
+      blogs: {
+        where: { isPublished: true },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          excerpt: true,
+          featuredImage: true,
+          readMins: true,
+          publishedAt: true,
+        },
+      },
     },
   });
   if (!course) throw AppError.notFound("Course not found");
@@ -171,7 +194,39 @@ export async function getCourseBySlug(slug: string) {
 export async function updateCourse(id: string, data: Record<string, unknown>) {
   const existing = await prisma.course.findUnique({ where: { id } });
   if (!existing) throw AppError.notFound("Course not found");
-  return prisma.course.update({ where: { id }, data: data as never });
+
+  const { blogIds, ...courseData } = data;
+
+  if (Array.isArray(blogIds)) {
+    // Unlink removed blogs
+    await prisma.blog.updateMany({
+      where: { courseId: id, id: { notIn: blogIds as string[] } },
+      data: { courseId: null },
+    });
+    // Link new blogs
+    if ((blogIds as string[]).length > 0) {
+      await prisma.blog.updateMany({
+        where: { id: { in: blogIds as string[] } },
+        data: { courseId: id },
+      });
+    }
+  }
+
+  return prisma.course.update({
+    where: { id },
+    data: courseData as never,
+    include: {
+      category: true,
+      blogs: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          isPublished: true,
+        },
+      },
+    },
+  });
 }
 
 export async function deleteCourse(id: string) {

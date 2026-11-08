@@ -3,6 +3,7 @@ import Footer from '@/components/Footer';
 import { serverFetch } from '@/lib/serverApi';
 import CourseCard from '@/components/courses/CourseCard';
 import Link from 'next/link';
+import { getAllStaticCourses } from '@/data/staticCourses';
 
 interface CoursesPageProps {
   searchParams: {
@@ -16,8 +17,34 @@ async function getCourses(category?: string, search?: string) {
   if (category) params.set('category', category);
   if (search) params.set('search', search);
   const qs = params.toString();
-  const courses = await serverFetch<any[]>(`/v1/courses${qs ? `?${qs}` : ''}`);
-  return courses;
+  let courses: any[] = [];
+  try {
+    const data = await serverFetch<any[]>(`/v1/courses${qs ? `?${qs}` : ''}`);
+    if (Array.isArray(data)) courses = data;
+  } catch (error) {
+    console.error('Error fetching courses:', error);
+  }
+
+  // Merge static courses that are not yet created in the DB
+  const staticCourses = getAllStaticCourses().filter((sc) => {
+    // Check if course is already returned from DB
+    if (courses.some((c) => c.slug === sc.slug)) return false;
+
+    // Filter by category
+    if (category && sc.category?.slug !== category) return false;
+
+    // Filter by search term
+    if (search) {
+      const q = search.toLowerCase();
+      const matchTitle = sc.title.toLowerCase().includes(q);
+      const matchDesc = sc.shortDescription.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc) return false;
+    }
+
+    return true;
+  });
+
+  return [...courses, ...staticCourses];
 }
 
 async function getCategories() {

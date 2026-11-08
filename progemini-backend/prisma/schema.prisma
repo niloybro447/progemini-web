@@ -95,6 +95,7 @@ model User {
   studentProfile StudentProfile?
   certificates   Certificate[]
   marksheets     Marksheet[]
+  blogs          Blog[]    @relation("BlogAuthor")
 
   @@map("users")
 }
@@ -168,6 +169,7 @@ model Course {
   reports     Report[]
   applications Application[]
   attendances Attendance[]
+  blogs       Blog[]
 
   @@index([categoryId])
   @@index([slug])
@@ -339,23 +341,61 @@ model Review {
   @@map("reviews")
 }
 
-model Blog {
+model BlogCategory {
   id          String   @id @default(uuid())
-  title       String
+  name        String   @unique
   slug        String   @unique
-  excerpt     String?
-  content     String
-  thumbnail   String?
-  isPublished Boolean  @default(false)
-  views       Int      @default(0)
-  metaTitle   String?
-  metaDescription String?
-  metaKeywords String[]
-  tags        String[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  blogs       Blog[]
+
+  @@map("blog_categories")
+}
+
+model Blog {
+  id              String        @id @default(uuid())
+  title           String
+  slug            String        @unique
+  excerpt         String?
+  content         String?       @db.Text
+  featuredImage   String?       @map("featured_image")
+  thumbnail       String?
+  author          String?       @default("Progemini Academy")
+  authorAvatar    String?       @map("author_avatar")
+  readMins        Int?          @default(5) @map("read_mins")
+  tags            String[]      @default([])
+  blocks          Json          @default("[]")
+  isPublished     Boolean       @default(false) @map("is_published")
+  views           Int           @default(0)
+
+  // Category relation
+  categoryId      String?       @map("category_id")
+  category        BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Optional Course connection (dynamic course connection)
+  courseId        String?       @map("course_id")
+  course          Course?       @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  // SEO Fields (matching Kratos)
+  metaTitle       String?       @map("meta_title")
+  metaDescription String?       @map("meta_description")
+  metaKeywords    String[]      @default([]) @map("meta_keywords")
+  canonicalUrl    String?       @map("canonical_url")
+
+  // Author & Timestamps
+  publishedAt     DateTime?     @map("published_at")
+  createdById     String?       @map("created_by")
+  createdBy       User?         @relation("BlogAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
 
   @@index([slug])
+  @@index([categoryId])
+  @@index([courseId])
+  @@index([isPublished, publishedAt])
   @@map("blogs")
 }
 
