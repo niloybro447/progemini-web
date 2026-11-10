@@ -117,7 +117,7 @@ export default function AdminBlogsPage() {
   };
 
   return (
-    <div className="space-y-6 pb-16">
+    <div className="p-6 md:p-8 space-y-6 pb-16">
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-5">
         <div>

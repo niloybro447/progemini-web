@@ -94,9 +94,10 @@
   }
 }
 
-/* TipTap rich content styles used by course editor and public renderer.
+/* TipTap rich content styles used by course/blog editor and public renderer.
    These do not rely on @tailwindcss/typography plugin. */
-.course-rich-content {
+.course-rich-content,
+.blog-rich-content {
   color: #374151;
   line-height: 1.7;
   word-break: break-word;
@@ -104,7 +105,10 @@
 
 .course-rich-content h1,
 .course-rich-content h2,
-.course-rich-content h3 {
+.course-rich-content h3,
+.blog-rich-content h1,
+.blog-rich-content h2,
+.blog-rich-content h3 {
   color: #111827;
   font-weight: 700;
   line-height: 1.3;
@@ -112,33 +116,39 @@
   margin-bottom: 0.5rem;
 }
 
-.course-rich-content h1 { font-size: 1.75rem; }
-.course-rich-content h2 { font-size: 1.5rem; }
-.course-rich-content h3 { font-size: 1.25rem; }
+.course-rich-content h1, .blog-rich-content h1 { font-size: 1.75rem; }
+.course-rich-content h2, .blog-rich-content h2 { font-size: 1.5rem; }
+.course-rich-content h3, .blog-rich-content h3 { font-size: 1.25rem; }
 
-.course-rich-content p {
+.course-rich-content p,
+.blog-rich-content p {
   margin: 0.6rem 0;
 }
 
 .course-rich-content ul,
-.course-rich-content ol {
+.course-rich-content ol,
+.blog-rich-content ul,
+.blog-rich-content ol {
   margin: 0.65rem 0;
   padding-left: 1.4rem;
 }
 
-.course-rich-content ul { list-style: disc; }
-.course-rich-content ol { list-style: decimal; }
+.course-rich-content ul, .blog-rich-content ul { list-style: disc; }
+.course-rich-content ol, .blog-rich-content ol { list-style: decimal; }
 
-.course-rich-content li {
+.course-rich-content li,
+.blog-rich-content li {
   margin: 0.3rem 0;
 }
 
-.course-rich-content a {
+.course-rich-content a,
+.blog-rich-content a {
   color: #d7263d;
   text-decoration: underline;
 }
 
-.course-rich-content blockquote {
+.course-rich-content blockquote,
+.blog-rich-content blockquote {
   border-left: 4px solid #d7263d;
   margin: 0.8rem 0;
   padding-left: 0.9rem;
@@ -146,14 +156,16 @@
   font-style: italic;
 }
 
-.course-rich-content code {
+.course-rich-content code,
+.blog-rich-content code {
   background: #f3f4f6;
   color: #111827;
   padding: 0.1rem 0.35rem;
   border-radius: 0.25rem;
 }
 
-.course-rich-content pre {
+.course-rich-content pre,
+.blog-rich-content pre {
   background: #111827;
   color: #f9fafb;
   border-radius: 0.5rem;
@@ -161,23 +173,37 @@
   overflow-x: auto;
 }
 
-.course-rich-content table {
+.course-rich-content table,
+.blog-rich-content table {
   width: 100%;
   border-collapse: collapse;
   margin: 0.85rem 0;
 }
 
 .course-rich-content th,
-.course-rich-content td {
+.course-rich-content td,
+.blog-rich-content th,
+.blog-rich-content td {
   border: 1px solid #d1d5db;
   padding: 0.5rem 0.65rem;
   text-align: left;
 }
 
-.course-rich-content th {
+.course-rich-content th,
+.blog-rich-content th {
   background: #f9fafb;
   color: #111827;
   font-weight: 600;
+}
+
+.course-rich-content table .selectedCell:after,
+.blog-rich-content table .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0; right: 0; top: 0; bottom: 0;
+  background: rgba(215, 38, 61, 0.12);
+  pointer-events: none;
 }
 
 /* Dark theme support for course-rich-content in inverted prose containers */

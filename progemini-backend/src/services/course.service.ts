@@ -298,6 +298,13 @@ export async function createAdminCourse(data: Record<string, unknown>) {
     include: { category: { select: { name: true } } },
   });
 
+  if (Array.isArray(data.blogIds) && (data.blogIds as string[]).length > 0) {
+    await prisma.blog.updateMany({
+      where: { id: { in: data.blogIds as string[] } },
+      data: { courseId: course.id },
+    });
+  }
+
   return course;
 }
 
@@ -309,6 +316,14 @@ export async function getAdminCourseById(id: string) {
       sections: {
         include: { lessons: { orderBy: { order: "asc" } } },
         orderBy: { order: "asc" },
+      },
+      blogs: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          isPublished: true,
+        },
       },
     },
   });
@@ -330,9 +345,27 @@ export async function updateAdminCourse(id: string, data: Record<string, unknown
     if (!cat) throw AppError.badRequest("Category not found");
   }
 
+  // Extract blogIds so it does not leak into Prisma Course update
+  const { blogIds, ...rawCourseData } = data;
+
+  if (Array.isArray(blogIds)) {
+    // Unlink removed blogs
+    await prisma.blog.updateMany({
+      where: { courseId: id, id: { notIn: blogIds as string[] } },
+      data: { courseId: null },
+    });
+    // Link new blogs
+    if ((blogIds as string[]).length > 0) {
+      await prisma.blog.updateMany({
+        where: { id: { in: blogIds as string[] } },
+        data: { courseId: id },
+      });
+    }
+  }
+
   const richFields = ["introduction", "assessmentsVerification", "academicAchievement", "careerOpportunities"];
   const jsonFields = ["whatYouLearn", "requirements", "customSections"];
-  const updateData: Record<string, unknown> = { ...data };
+  const updateData: Record<string, unknown> = { ...rawCourseData };
   for (const field of richFields) {
     if (field in updateData) {
       updateData[field] = normalizeRichField(updateData[field]);
@@ -349,7 +382,17 @@ export async function updateAdminCourse(id: string, data: Record<string, unknown
   return prisma.course.update({
     where: { id },
     data: updateData as never,
-    include: { category: { select: { name: true } } },
+    include: {
+      category: { select: { name: true } },
+      blogs: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          isPublished: true,
+        },
+      },
+    },
   });
 }
 

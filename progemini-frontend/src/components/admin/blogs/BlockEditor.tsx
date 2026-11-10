@@ -19,6 +19,7 @@ import {
 import { BlogBlock } from '@/components/blog/types';
 import { apiClient } from '@/lib/apiClient';
 import toast from 'react-hot-toast';
+import BlogRichTextEditor from './BlogRichTextEditor';
 
 interface BlockEditorProps {
   blocks: BlogBlock[];
@@ -274,13 +275,13 @@ function BlockItemContent({
       const html = typeof block.content === 'string' ? block.content : block.content?.html || '';
       return (
         <div className="space-y-2">
-          <label className="text-xs font-semibold text-gray-600">HTML / Text Content</label>
-          <textarea
-            rows={6}
-            value={html}
-            onChange={(e) => onChange({ html: e.target.value })}
-            placeholder="Write content (supports HTML tags: <h2>, <h3>, <p>, <ul>, <li>, <strong>, <a>)"
-            className="w-full rounded-lg border border-gray-300 p-3 text-sm font-mono text-gray-800 focus:border-brand-primary focus:outline-none focus:ring-1 focus:ring-brand-primary"
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-gray-700">Rich Text Article Content</label>
+            <span className="text-[11px] text-gray-400 font-medium">Headings • Formatting • Tables • Hyperlinks</span>
+          </div>
+          <BlogRichTextEditor
+            content={html}
+            onChange={(newHtml) => onChange({ html: newHtml })}
           />
         </div>
       );

@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
-import { FaClock, FaInfinity, FaMobile, FaCertificate, FaTrophy, FaMedal, FaBook } from "react-icons/fa";
+import { FaClock, FaInfinity, FaMobile, FaCertificate, FaTrophy, FaMedal, FaBook, FaNewspaper } from "react-icons/fa";
 import { useState, useEffect } from "react";
 import { apiClient } from "@/lib/apiClient";
 
@@ -75,6 +75,48 @@ export default function CourseSidebar({ course }: CourseSidebarProps) {
             <span>Apply Now</span>
           </button>
         </div>
+
+        {/* Supporting Academic Guides & Blog Articles */}
+        {Array.isArray(course.blogs) && course.blogs.length > 0 && (
+          <div className="pt-5 border-t border-gray-100 space-y-3">
+            <div className="flex items-center gap-2">
+              <FaNewspaper className="text-brand-primary text-sm flex-shrink-0" />
+              <h3 className="font-bold text-gray-900 text-sm">
+                Academic Guides & Insights
+              </h3>
+            </div>
+            <p className="text-[11px] text-gray-500 leading-snug">
+              Faculty guidance, study timetables, and career pathways supporting this programme.
+            </p>
+            <div className="space-y-2.5 pt-1">
+              {course.blogs.map((blog: any) => (
+                <Link
+                  key={blog.id || blog.slug}
+                  href={`/blog/${blog.slug}`}
+                  className="group block p-3 rounded-xl border border-gray-200 hover:border-brand-primary/60 hover:shadow-sm transition-all bg-gray-50/60 hover:bg-white"
+                >
+                  <div className="flex items-center justify-between text-[10px] font-bold text-brand-primary uppercase tracking-wider mb-1">
+                    <span>Faculty Guide</span>
+                    <span className="text-gray-400 font-medium lowercase">
+                      {blog.readMins || 5} min read
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-gray-900 group-hover:text-brand-primary transition-colors text-xs line-clamp-2 leading-snug">
+                    {blog.title}
+                  </h4>
+                  {blog.excerpt && (
+                    <p className="text-[11px] text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                      {blog.excerpt}
+                    </p>
+                  )}
+                  <span className="mt-2 inline-flex items-center text-[11px] font-bold text-brand-primary gap-1 group-hover:translate-x-1 transition-transform">
+                    Read Guide &rarr;
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Related Courses Section */}

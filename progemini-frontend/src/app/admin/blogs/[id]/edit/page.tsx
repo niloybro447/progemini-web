@@ -47,7 +47,7 @@ export default function EditBlogPage() {
   }
 
   return (
-    <div className="py-2">
+    <div className="p-6 md:p-8">
       <BlogForm initialData={blog} isEdit={true} />
     </div>
   );

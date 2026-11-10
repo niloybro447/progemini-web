@@ -62,7 +62,11 @@ function TextBlock({ content }: { content: any }) {
         prose-ol:my-4 prose-ol:list-decimal prose-ol:pl-6
         prose-li:my-1.5
         prose-a:text-brand-primary prose-a:underline hover:prose-a:text-red-700
-        prose-strong:text-gray-900 prose-strong:font-semibold"
+        prose-strong:text-gray-900 prose-strong:font-semibold
+        prose-table:w-full prose-table:border-collapse prose-table:my-6
+        prose-th:border prose-th:border-gray-300 prose-th:bg-gray-50 prose-th:p-3 prose-th:text-left prose-th:font-semibold prose-th:text-gray-900
+        prose-td:border prose-td:border-gray-300 prose-td:p-3 prose-td:text-gray-700
+        blog-rich-content course-rich-content"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

@@ -5,8 +5,9 @@ import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BlogBlockRenderer from '@/components/blog/BlogBlockRenderer';
-import BlogCourseCard from '@/components/blog/BlogCourseCard';
 import { BlogPost } from '@/components/blog/types';
+import { getFileUrl } from '@/lib/utils';
+import { serverFetch } from '@/lib/serverApi';
 import {
   FaClock,
   FaCalendarAlt,
@@ -15,6 +16,11 @@ import {
   FaGraduationCap,
   FaArrowRight,
   FaUserCheck,
+  FaAward,
+  FaTrophy,
+  FaCheckCircle,
+  FaBookOpen,
+  FaHome,
 } from 'react-icons/fa';
 
 export const revalidate = 60; // ISR 60 seconds
@@ -52,6 +58,24 @@ async function fetchRelatedPosts(categorySlug?: string, currentSlug?: string): P
     return list.filter((p) => p.slug !== currentSlug).slice(0, 3);
   } catch (err) {
     console.error('Failed to fetch related posts:', err);
+    return [];
+  }
+}
+
+async function fetchFeaturedCourses(): Promise<any[]> {
+  try {
+    const all = await serverFetch<any[]>('/v1/courses', { next: { revalidate: 300 } });
+    if (!all || !Array.isArray(all)) return [];
+    return all
+      .filter((c: any) => c.isFeatured && c.isPublished)
+      .sort(
+        (a: any, b: any) =>
+          (a.featuredOrder ?? 999) - (b.featuredOrder ?? 999) ||
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, 4);
+  } catch (error) {
+    console.error('Failed to fetch featured courses for blog sidebar:', error);
     return [];
   }
 }
@@ -110,30 +134,38 @@ export default async function BlogPostDetailPage({ params }: Params) {
     notFound();
   }
 
-  const relatedPosts = await fetchRelatedPosts(post.category?.slug, post.slug);
+  const [relatedPosts, featuredCourses] = await Promise.all([
+    fetchRelatedPosts(post.category?.slug, post.slug),
+    !post.course ? fetchFeaturedCourses() : Promise.resolve([]),
+  ]);
 
   return (
     <div className="min-h-screen bg-[#fafafa] flex flex-col">
       <Navbar />
 
-      {/* Article Hero */}
-      <header className="relative bg-gradient-to-b from-[#1a1718] to-[#252223] text-white pt-28 pb-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-4xl mx-auto">
+      {/* Article Hero — Full Width with Controlled Margins */}
+      <header className="relative bg-gradient-to-br from-[#121011] via-[#1a1617] to-[#261f22] text-white pt-28 sm:pt-32 pb-16 px-4 sm:px-8 md:px-12 lg:px-16 xl:px-20 border-b border-white/5 overflow-hidden">
+        {/* Subtle decorative glows & pattern */}
+        <div className="absolute -top-24 right-1/4 w-[500px] h-[500px] bg-brand-primary/10 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none" />
+
+        <div className="max-w-[1536px] mx-auto relative z-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-2 text-xs text-gray-400 mb-6 flex-wrap">
-            <Link href="/" className="hover:text-white transition-colors">
-              Home
+          <nav className="flex items-center gap-2 text-xs text-gray-400 mb-6 flex-wrap font-medium">
+            <Link href="/" className="hover:text-white transition-colors flex items-center gap-1.5">
+              <FaHome className="text-xs" /> Home
             </Link>
-            <span>/</span>
+            <span className="text-gray-600">/</span>
             <Link href="/blog" className="hover:text-white transition-colors">
-              Blog
+              Journal & Blog
             </Link>
             {post.category && (
               <>
-                <span>/</span>
+                <span className="text-gray-600">/</span>
                 <Link
                   href={`/blog?category=${post.category.slug}`}
-                  className="hover:text-white transition-colors text-red-300"
+                  className="hover:text-white transition-colors text-red-300 font-semibold"
                 >
                   {post.category.name}
                 </Link>
@@ -141,32 +173,40 @@ export default async function BlogPostDetailPage({ params }: Params) {
             )}
           </nav>
 
-          {/* Category Badge */}
-          {post.category && (
-            <div className="mb-4">
-              <span className="inline-block rounded-full bg-brand-primary px-3.5 py-1 text-xs font-bold text-white shadow">
+          {/* Category Badge & Read Time */}
+          <div className="flex flex-wrap items-center gap-3 mb-5">
+            {post.category && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-primary px-3.5 py-1 text-xs font-bold text-white shadow-md shadow-brand-primary/20 uppercase tracking-wider">
+                <FaBookOpen className="text-[11px]" />
                 {post.category.name}
               </span>
-            </div>
-          )}
+            )}
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-300 backdrop-blur-xs">
+              <FaClock className="text-xs text-red-300" />
+              {post.readMins || 5} min read
+            </span>
+          </div>
 
           {/* Main Title */}
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.14] max-w-6xl">
             {post.title}
           </h1>
 
           {/* Metadata bar */}
-          <div className="mt-6 flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-300 border-t border-white/10 pt-4">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/30 text-red-300">
+          <div className="mt-8 flex flex-wrap items-center gap-4 sm:gap-6 text-xs sm:text-sm text-gray-300 border-t border-white/10 pt-5">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-primary/20 text-red-300 border border-brand-primary/30">
                 <FaUserCheck className="text-xs" />
               </span>
-              <span className="font-semibold text-white">
-                {post.author || 'Progemini Academy'}
-              </span>
+              <div>
+                <span className="font-semibold text-white block">
+                  {post.author || 'Progemini Academic Faculty'}
+                </span>
+                <span className="text-[11px] text-gray-400">UK Standard Academic Publication</span>
+              </div>
             </div>
 
-            <span className="text-gray-500">•</span>
+            <span className="hidden sm:inline text-gray-600">•</span>
 
             <div className="flex items-center gap-1.5">
               <FaCalendarAlt className="text-gray-400 text-xs" />
@@ -178,20 +218,18 @@ export default async function BlogPostDetailPage({ params }: Params) {
                 })}
               </span>
             </div>
-
-            <span className="text-gray-500">•</span>
-
-            <div className="flex items-center gap-1.5">
-              <FaClock className="text-gray-400 text-xs" />
-              <span>{post.readMins || 5} min read</span>
-            </div>
           </div>
 
-          {/* Excerpt */}
+          {/* Excerpt Summary Callout */}
           {post.excerpt && (
-            <p className="mt-6 text-base sm:text-lg text-gray-200 leading-relaxed font-normal bg-white/5 rounded-2xl p-4 sm:p-6 border border-white/10">
-              {post.excerpt}
-            </p>
+            <div className="mt-8 rounded-2xl bg-white/[0.04] border border-white/10 p-5 sm:p-6 backdrop-blur-sm max-w-5xl border-l-4 border-l-brand-primary">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-red-300 mb-1.5">
+                Executive Summary & Key Takeaways
+              </div>
+              <p className="text-sm sm:text-base text-gray-200 leading-relaxed font-normal">
+                {post.excerpt}
+              </p>
+            </div>
           )}
 
           {/* Tags */}
@@ -200,7 +238,7 @@ export default async function BlogPostDetailPage({ params }: Params) {
               {post.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-gray-300"
+                  className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-xs font-medium text-gray-300 transition-colors"
                 >
                   #{tag}
                 </span>
@@ -210,65 +248,226 @@ export default async function BlogPostDetailPage({ params }: Params) {
         </div>
       </header>
 
-      {/* Main Body */}
-      <main className="flex-grow max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
-        {/* Featured Image */}
-        {post.featuredImage && (
-          <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl bg-gray-100 shadow-md border border-gray-200/80 mb-10">
-            <Image
-              src={post.featuredImage}
-              alt={post.title}
-              fill
-              priority
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 896px"
-            />
+      {/* Main Body — Two Columns (8 / 4) */}
+      <main className="flex-grow w-full max-w-[1536px] mx-auto px-4 sm:px-8 md:px-12 lg:px-16 xl:px-20 py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+          {/* Left Column: Main Blog Content (8 cols) */}
+          <div className="lg:col-span-8 space-y-8">
+            {/* Featured Cover Image */}
+            {post.featuredImage && (
+              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl bg-gray-100 shadow-md border border-gray-200/80">
+                <Image
+                  src={getFileUrl(post.featuredImage)}
+                  alt={post.title}
+                  fill
+                  priority
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 100vw, 960px"
+                />
+              </div>
+            )}
+
+            {/* Modular Content Blocks (Notice: NO top or bottom dynamic course card in the content stream) */}
+            {post.blocks && post.blocks.length > 0 ? (
+              <article className="rounded-3xl bg-white p-6 sm:p-10 shadow-sm border border-gray-200/80">
+                <BlogBlockRenderer blocks={post.blocks} postTitle={post.title} />
+              </article>
+            ) : post.content ? (
+              <article
+                className="prose prose-lg max-w-none rounded-3xl bg-white p-6 sm:p-10 shadow-sm border border-gray-200/80 leading-relaxed text-gray-800"
+                dangerouslySetInnerHTML={{ __html: post.content }}
+              />
+            ) : null}
+
+            {/* Share & Back buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 pt-6">
+              <Link
+                href="/blog"
+                className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <FaArrowLeft className="text-xs" />
+                <span>Back to All Articles</span>
+              </Link>
+
+              <div className="flex items-center gap-2 text-xs text-gray-500 font-medium">
+                <FaShareAlt className="text-gray-400" />
+                <span>Published by Progemini Academy</span>
+              </div>
+            </div>
           </div>
-        )}
 
-        {/* Connected Academic Programme Card (Dynamic Course Connection) */}
-        {post.course && <BlogCourseCard course={post.course} />}
+          {/* Right Column: Sidebar (4 cols) */}
+          <aside className="lg:col-span-4 space-y-6 lg:sticky lg:top-28">
+            {/* If dynamic course is available on this blog, ONLY display that course */}
+            {post.course ? (
+              <div className="rounded-3xl overflow-hidden border border-gray-200/90 bg-white shadow-md hover:shadow-xl transition-all duration-300">
+                {/* Header Banner */}
+                <div className="bg-gradient-to-r from-brand-secondary via-[#241f21] to-brand-primary text-white px-5 py-3.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
+                    <FaGraduationCap className="text-red-400 text-sm" /> Connected Programme
+                  </div>
+                  {post.course.level && (
+                    <span className="text-[11px] bg-white/20 text-white font-medium px-2 py-0.5 rounded-full">
+                      {post.course.level}
+                    </span>
+                  )}
+                </div>
 
-        {/* Modular Content Blocks */}
-        {post.blocks && post.blocks.length > 0 ? (
-          <article className="rounded-3xl bg-white p-6 sm:p-10 shadow-sm border border-gray-200/80">
-            <BlogBlockRenderer blocks={post.blocks} postTitle={post.title} />
-          </article>
-        ) : post.content ? (
-          <article
-            className="prose prose-lg max-w-none rounded-3xl bg-white p-6 sm:p-10 shadow-sm border border-gray-200/80 leading-relaxed text-gray-800"
-            dangerouslySetInnerHTML={{ __html: post.content }}
-          />
-        ) : null}
+                {/* Course Feature Image */}
+                {post.course.featureImage && (
+                  <div className="relative aspect-[16/10] w-full bg-gray-100 overflow-hidden">
+                    <Image
+                      src={getFileUrl(post.course.featureImage)}
+                      alt={post.course.title}
+                      fill
+                      className="object-cover hover:scale-105 transition-transform duration-500"
+                      sizes="(max-width: 1024px) 100vw, 420px"
+                    />
+                  </div>
+                )}
 
-        {/* Connected Course Card (shown at bottom too if long article) */}
-        {post.course && post.blocks && post.blocks.length > 2 && (
-          <div className="mt-10">
-            <BlogCourseCard course={post.course} />
-          </div>
-        )}
+                {/* Content */}
+                <div className="p-6 space-y-4">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-snug hover:text-brand-primary transition-colors">
+                      <Link href={`/courses/${post.course.slug}`}>{post.course.title}</Link>
+                    </h3>
+                    {post.course.introduction && (
+                      <p className="mt-2 text-xs text-gray-600 line-clamp-3 leading-relaxed">
+                        {post.course.introduction.replace(/<[^>]*>/g, '')}
+                      </p>
+                    )}
+                  </div>
 
-        {/* Share & Back buttons */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-gray-200 pt-6">
-          <Link
-            href="/blog"
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-          >
-            <FaArrowLeft className="text-xs" />
-            <span>Back to All Articles</span>
-          </Link>
+                  {/* Highlights */}
+                  <div className="space-y-2 pt-2 border-t border-gray-100 text-xs text-gray-700">
+                    {post.course.award && (
+                      <div className="flex items-center gap-2">
+                        <FaAward className="text-yellow-500 flex-shrink-0" />
+                        <span className="font-semibold text-gray-800 line-clamp-1">
+                          {post.course.award}
+                        </span>
+                      </div>
+                    )}
+                    {post.course.duration && (
+                      <div className="flex items-center gap-2">
+                        <FaClock className="text-brand-primary flex-shrink-0" />
+                        <span>{post.course.duration}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-gray-600">
+                      <FaCheckCircle className="text-emerald-500 flex-shrink-0" />
+                      <span>UK Accredited International Pathway</span>
+                    </div>
+                  </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <FaShareAlt className="text-gray-400" />
-            <span>Published by Progemini Academy</span>
-          </div>
+                  {/* Apply CTA */}
+                  <Link
+                    href={`/courses/${post.course.slug}`}
+                    className="btn-primary w-full text-center py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-sm mt-4 text-xs sm:text-sm"
+                  >
+                    <span>Explore Programme & Apply</span>
+                    <FaArrowRight className="text-xs" />
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              /* If NO dynamic course on this blog, display the featured courses from the homepage */
+              <div className="rounded-3xl border border-gray-200/90 bg-white p-6 shadow-sm space-y-5">
+                <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-red-100 text-brand-primary flex items-center justify-center">
+                      <FaTrophy className="text-sm" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-sm">Featured Programmes</h3>
+                      <p className="text-[11px] text-gray-500">Flagship UK degree & executive courses</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {featuredCourses.map((c: any) => (
+                    <Link
+                      key={c.id}
+                      href={`/courses/${c.slug}`}
+                      className="group flex gap-3 p-2.5 rounded-2xl hover:bg-red-50/50 border border-transparent hover:border-red-100 transition-all"
+                    >
+                      <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                        {c.featureImage ? (
+                          <Image
+                            src={getFileUrl(c.featureImage)}
+                            alt={c.title}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            sizes="80px"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                            <FaGraduationCap className="text-xl" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 flex flex-col justify-between py-0.5">
+                        <div>
+                          <h4 className="font-bold text-gray-900 group-hover:text-brand-primary transition-colors text-xs leading-snug line-clamp-2">
+                            {c.title}
+                          </h4>
+                          {c.award && (
+                            <span className="text-[10px] text-gray-500 mt-1 line-clamp-1 block">
+                              {c.award}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-bold text-brand-primary inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform mt-1">
+                          <span>Learn More</span>
+                          <FaArrowRight className="text-[9px]" />
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t border-gray-100">
+                  <Link
+                    href="/courses"
+                    className="w-full py-2.5 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 hover:border-brand-primary hover:text-brand-primary transition-all text-center flex items-center justify-center gap-1.5"
+                  >
+                    <span>Explore All Programmes</span>
+                    <FaArrowRight className="text-[10px]" />
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* Academic Admissions Assistance Card */}
+            <div className="rounded-3xl border border-red-100 bg-gradient-to-br from-red-50/60 to-white p-5 shadow-sm space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-primary/10 text-brand-primary text-xs">
+                  <FaUserCheck />
+                </span>
+                <h4 className="text-xs font-bold text-gray-900">Need Admissions Guidance?</h4>
+              </div>
+              <p className="text-[11px] text-gray-600 leading-relaxed">
+                Connect with a Progemini academic advisor for personal guidance on UK degree enrolment, eligibility, and scholarships.
+              </p>
+              <Link
+                href="/contact"
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-brand-primary hover:underline"
+              >
+                <span>Speak to an Advisor</span>
+                <FaArrowRight className="text-[10px]" />
+              </Link>
+            </div>
+          </aside>
         </div>
       </main>
 
       {/* Related Articles Section */}
       {relatedPosts.length > 0 && (
-        <section className="border-t border-gray-200 bg-white py-16 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
+        <section className="border-t border-gray-200 bg-white py-16 px-4 sm:px-8 md:px-12 lg:px-16 xl:px-20">
+          <div className="max-w-[1536px] mx-auto">
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Related Articles</h2>
@@ -298,7 +497,7 @@ export default async function BlogPostDetailPage({ params }: Params) {
                   >
                     {related.featuredImage ? (
                       <Image
-                        src={related.featuredImage}
+                        src={getFileUrl(related.featuredImage)}
                         alt={related.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -344,4 +543,3 @@ export default async function BlogPostDetailPage({ params }: Params) {
     </div>
   );
 }
-

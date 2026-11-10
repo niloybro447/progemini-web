@@ -5,7 +5,7 @@ import BlogForm from '@/components/admin/blogs/BlogForm';
 
 export default function CreateBlogPage() {
   return (
-    <div className="py-2">
+    <div className="p-6 md:p-8">
       <BlogForm isEdit={false} />
     </div>
   );
