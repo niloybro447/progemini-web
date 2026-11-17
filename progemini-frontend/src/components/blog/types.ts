@@ -58,3 +58,42 @@ export interface BlogPost {
   updatedAt?: string;
 }
 
+/**
+ * Cleanly extracts readable plain text from a course introduction,
+ * properly parsing TipTap RichContent JSON strings ({ html, json }) without raw syntax leaks.
+ */
+export function extractCourseIntroText(intro: any): string {
+  if (!intro) return '';
+  if (typeof intro === 'object') {
+    const rawHtml = intro.html || intro.text || intro.description || '';
+    if (rawHtml) return rawHtml.replace(/<[^>]*>/g, '').trim();
+    return '';
+  }
+  if (typeof intro === 'string') {
+    const trimmed = intro.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.html) {
+          return parsed.html.replace(/<[^>]*>/g, '').trim();
+        }
+        if (parsed.json) {
+          const extractFromDoc = (node: any): string => {
+            if (!node) return '';
+            if (node.text) return node.text;
+            if (Array.isArray(node.content)) {
+              return node.content.map(extractFromDoc).join(' ');
+            }
+            return '';
+          };
+          return extractFromDoc(parsed.json).trim();
+        }
+      } catch {
+        // Fallback to plain string handling
+      }
+    }
+    return trimmed.replace(/<[^>]*>/g, '').trim();
+  }
+  return '';
+}
+

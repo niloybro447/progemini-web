@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import BlogBlockRenderer from '@/components/blog/BlogBlockRenderer';
-import { BlogPost } from '@/components/blog/types';
+import { BlogPost, extractCourseIntroText } from '@/components/blog/types';
 import { getFileUrl } from '@/lib/utils';
 import { serverFetch } from '@/lib/serverApi';
 import {
@@ -143,26 +143,47 @@ export default async function BlogPostDetailPage({ params }: Params) {
     <div className="min-h-screen bg-[#fafafa] flex flex-col">
       <Navbar />
 
-      {/* Article Hero — Full Width with Controlled Margins */}
-      <header className="relative bg-gradient-to-br from-[#121011] via-[#1a1617] to-[#261f22] text-white pt-28 sm:pt-32 pb-16 px-4 sm:px-8 md:px-12 lg:px-16 xl:px-20 border-b border-white/5 overflow-hidden">
-        {/* Subtle decorative glows & pattern */}
-        <div className="absolute -top-24 right-1/4 w-[500px] h-[500px] bg-brand-primary/10 rounded-full blur-[130px] pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[100px] pointer-events-none" />
-        <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none" />
+      {/* Article Hero — Full Width with Feature Image as Background */}
+      <header className="relative text-white pt-28 sm:pt-36 pb-16 sm:pb-20 px-4 sm:px-8 md:px-12 lg:px-16 xl:px-20 border-b border-white/5 overflow-hidden min-h-[460px] flex flex-col justify-end">
+        {/* Background Image Layer */}
+        {post.featuredImage ? (
+          <div className="absolute inset-0 z-0">
+            <Image
+              src={getFileUrl(post.featuredImage)}
+              alt={post.title}
+              fill
+              priority
+              className="object-cover object-center"
+              sizes="100vw"
+            />
+            {/* Cinematic dark multi-layer gradients for text readability and high contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#100d0e] via-[#141112]/92 to-[#120f10]/80" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#100d0e]/95 via-[#141112]/85 to-transparent" />
+            <div className="absolute inset-0 backdrop-blur-[1px]" />
+          </div>
+        ) : (
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#121011] via-[#1a1617] to-[#261f22]">
+            <div className="absolute -top-24 right-1/4 w-[500px] h-[500px] bg-brand-primary/10 rounded-full blur-[130px] pointer-events-none" />
+            <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] bg-red-600/5 rounded-full blur-[100px] pointer-events-none" />
+          </div>
+        )}
 
-        <div className="max-w-[1536px] mx-auto relative z-10">
+        {/* Ambient subtle dot pattern on top */}
+        <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:28px_28px] pointer-events-none z-[1]" />
+
+        <div className="max-w-[1536px] w-full mx-auto relative z-10">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-2 text-xs text-gray-400 mb-6 flex-wrap font-medium">
+          <nav className="flex items-center gap-2 text-xs text-gray-300 mb-6 flex-wrap font-medium">
             <Link href="/" className="hover:text-white transition-colors flex items-center gap-1.5">
               <FaHome className="text-xs" /> Home
             </Link>
-            <span className="text-gray-600">/</span>
+            <span className="text-gray-500">/</span>
             <Link href="/blog" className="hover:text-white transition-colors">
               Journal & Blog
             </Link>
             {post.category && (
               <>
-                <span className="text-gray-600">/</span>
+                <span className="text-gray-500">/</span>
                 <Link
                   href={`/blog?category=${post.category.slug}`}
                   className="hover:text-white transition-colors text-red-300 font-semibold"
@@ -181,14 +202,14 @@ export default async function BlogPostDetailPage({ params }: Params) {
                 {post.category.name}
               </span>
             )}
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-300 backdrop-blur-xs">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-black/40 border border-white/10 px-3 py-1 text-xs font-semibold text-gray-200 backdrop-blur-sm">
               <FaClock className="text-xs text-red-300" />
               {post.readMins || 5} min read
             </span>
           </div>
 
           {/* Main Title */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.14] max-w-6xl">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.14] max-w-5xl drop-shadow-sm">
             {post.title}
           </h1>
 
@@ -222,11 +243,11 @@ export default async function BlogPostDetailPage({ params }: Params) {
 
           {/* Excerpt Summary Callout */}
           {post.excerpt && (
-            <div className="mt-8 rounded-2xl bg-white/[0.04] border border-white/10 p-5 sm:p-6 backdrop-blur-sm max-w-5xl border-l-4 border-l-brand-primary">
+            <div className="mt-8 rounded-2xl bg-black/40 border border-white/15 p-5 sm:p-6 backdrop-blur-md max-w-5xl border-l-4 border-l-brand-primary shadow-lg">
               <div className="text-[11px] font-bold uppercase tracking-wider text-red-300 mb-1.5">
                 Executive Summary & Key Takeaways
               </div>
-              <p className="text-sm sm:text-base text-gray-200 leading-relaxed font-normal">
+              <p className="text-sm sm:text-base text-gray-100 leading-relaxed font-normal">
                 {post.excerpt}
               </p>
             </div>
@@ -238,7 +259,7 @@ export default async function BlogPostDetailPage({ params }: Params) {
               {post.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-xs font-medium text-gray-300 transition-colors"
+                  className="rounded-full bg-black/40 border border-white/10 hover:bg-white/20 px-3 py-1 text-xs font-medium text-gray-200 transition-colors backdrop-blur-xs"
                 >
                   #{tag}
                 </span>
@@ -253,21 +274,7 @@ export default async function BlogPostDetailPage({ params }: Params) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* Left Column: Main Blog Content (8 cols) */}
           <div className="lg:col-span-8 space-y-8">
-            {/* Featured Cover Image */}
-            {post.featuredImage && (
-              <div className="relative aspect-[16/9] w-full overflow-hidden rounded-3xl bg-gray-100 shadow-md border border-gray-200/80">
-                <Image
-                  src={getFileUrl(post.featuredImage)}
-                  alt={post.title}
-                  fill
-                  priority
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 960px"
-                />
-              </div>
-            )}
-
-            {/* Modular Content Blocks (Notice: NO top or bottom dynamic course card in the content stream) */}
+            {/* Modular Content Blocks (Feature image is now displayed in the hero landing section) */}
             {post.blocks && post.blocks.length > 0 ? (
               <article className="rounded-3xl bg-white p-6 sm:p-10 shadow-sm border border-gray-200/80">
                 <BlogBlockRenderer blocks={post.blocks} postTitle={post.title} />
@@ -332,9 +339,9 @@ export default async function BlogPostDetailPage({ params }: Params) {
                     <h3 className="text-lg sm:text-xl font-bold text-gray-900 leading-snug hover:text-brand-primary transition-colors">
                       <Link href={`/courses/${post.course.slug}`}>{post.course.title}</Link>
                     </h3>
-                    {post.course.introduction && (
+                    {extractCourseIntroText(post.course.introduction) && (
                       <p className="mt-2 text-xs text-gray-600 line-clamp-3 leading-relaxed">
-                        {post.course.introduction.replace(/<[^>]*>/g, '')}
+                        {extractCourseIntroText(post.course.introduction)}
                       </p>
                     )}
                   </div>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { FaGraduationCap, FaClock, FaAward, FaArrowRight } from 'react-icons/fa';
-import { ConnectedCourse } from './types';
+import { ConnectedCourse, extractCourseIntroText } from './types';
 
 interface BlogCourseCardProps {
   course: ConnectedCourse;
@@ -46,9 +46,9 @@ export default function BlogCourseCard({ course }: BlogCourseCardProps) {
               {course.title}
             </h3>
 
-            {course.introduction && (
+            {course.introduction && extractCourseIntroText(course.introduction) && (
               <p className="mt-2 text-sm text-gray-600 line-clamp-2">
-                {course.introduction.replace(/<[^>]*>/g, '')}
+                {extractCourseIntroText(course.introduction)}
               </p>
             )}
 
