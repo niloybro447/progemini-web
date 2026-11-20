@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import DoctoralEnquiryForm from '@/components/landing/DoctoralEnquiryForm';
+import DoctoralHeroVideo from '@/components/landing/DoctoralHeroVideo';
 import {
   FaGraduationCap,
   FaAward,
@@ -78,7 +79,7 @@ const TESTIMONIALS = [
     role: 'Director of Talent Excellence | Academic Tutor | HR Professional & Leadership Coach',
     location: 'Global Technology Sector',
     badge: 'Doctoral Candidate — Organizational Strategy & Future of Work',
-    image: '/testimonials/doctoral/jerome-peterson.png',
+    image: '/testimonials/doctoral/jerome-peterson.jpg',
     rating: 5,
     highlight:
       'Combining practical experience as a senior HR leader with advanced critical enquiry to shape emerging talent strategies and the future of work.',
@@ -209,20 +210,9 @@ export default function DoctorateLandingPage() {
                 </Link>
               </div>
 
-              {/* Faculty Trust Note */}
-              <div className="pt-4 border-t border-white/10 flex items-center gap-4 text-xs text-gray-400">
-                <div className="flex -space-x-2">
-                  <div className="w-9 h-9 rounded-full bg-brand-primary/40 border-2 border-white/20 flex items-center justify-center font-bold text-white text-xs">
-                    SB
-                  </div>
-                  <div className="w-9 h-9 rounded-full bg-red-600/40 border-2 border-white/20 flex items-center justify-center font-bold text-white text-xs">
-                    JH
-                  </div>
-                </div>
-                <div>
-                  <span className="text-white font-semibold block">Under Guidance of Leading UK Supervisors</span>
-                  <span>Dr. Syed K I Bakht & Jonathan Hibberd</span>
-                </div>
+              {/* Programme Overview Video with Thumbnail */}
+              <div className="pt-2">
+                <DoctoralHeroVideo className="max-w-[460px]" />
               </div>
             </div>
 
